@@ -1,0 +1,12 @@
+--style=google
+--indent-switches
+--break-blocks
+--pad-oper
+--pad-header
+--fill-empty-lines
+--align-pointer=middle
+--break-one-line-headers
+--remove-braces
+--attach-return-type
+--indent=tab=4
+--indent-preproc-block
