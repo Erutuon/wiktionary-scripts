@@ -142,8 +142,9 @@ typedef struct _parse_info {
 	page_info page;
 } parse_info;
 
-void do_parsing (page_callback handle_page,
-                 Wiktionary_namespace_t * namespaces,
+void do_parsing (FILE * XML_file,
+                 page_callback handle_page,
+				 Wiktionary_namespace_t * namespaces,
                  void * data);
 				 
 void format_byte_count (size_t bytes, char * buf, size_t buf_len);

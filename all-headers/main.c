@@ -45,7 +45,7 @@ static inline void add_to_set (hattrie_t * trie,
 	
 	if (len > sizeof buf - 1)
 		buf_err(sizeof buf, str, len);
-		               
+		
 	memcpy(buf, str, len);
 	buf[len] = '\0';
 	
@@ -130,8 +130,8 @@ static inline void free_all_trie_mem (hattrie_t * trie) {
 	hattrie_iter_t * iter;
 	
 	for (iter = hattrie_iter_begin(trie, false);
-			!hattrie_iter_finished(iter);
-			hattrie_iter_next(iter)) {
+	        !hattrie_iter_finished(iter);
+	        hattrie_iter_next(iter)) {
 		value_t * storage = hattrie_iter_val(iter);
 		void * mem = (void *) *storage;
 		free(mem);
@@ -156,7 +156,7 @@ static inline void add_header_count (hattrie_t * header_trie,
 		header_counts = add_trie_mem(header_trie, header, header_len, HEADER_COUNTS_SIZE);
 	else
 		header_counts = (header_count_t *) *header_storage;
-	
+		
 	header_counts[header_level - 1] = header_count;
 }
 
@@ -189,7 +189,7 @@ static inline void filter_headers (hattrie_t * header_trie,
 				if (header_line_storage == NULL)
 					CRASH_WITH_MSG("!!!");
 					
-				header_count = (header_count_t) *header_line_storage;
+				header_count = (header_count_t) * header_line_storage;
 				
 				add_header_count(header_trie,
 				                 header,
@@ -250,7 +250,26 @@ static inline void print_header_trie (hattrie_t * trie) {
 	hattrie_iter_free(iter);
 }
 
-static inline void process_pages (page_count_t pages_to_process) {
+static inline void print_trie_info (hattrie_t * header_line_trie,
+                                    hattrie_t * header_trie) {
+	char byte_count_buf[BYTE_COUNT_BUF_SIZE];
+	
+	EPRINTF("found %zu potential header lines and %zu unique headers\n",
+	        hattrie_size(header_line_trie), hattrie_size(header_trie));
+	        
+	format_byte_count(hattrie_sizeof(header_line_trie),
+	                  byte_count_buf,
+	                  sizeof byte_count_buf);
+	EPRINTF("used %s in header line trie and ", byte_count_buf);
+	
+	format_byte_count(hattrie_sizeof(header_trie),
+	                  byte_count_buf,
+	                  sizeof byte_count_buf);
+	EPRINTF("%s in header trie\n", byte_count_buf);
+}
+
+static inline void process_pages (page_count_t pages_to_process,
+                                  Wiktionary_namespace_t * namespaces) {
 	hattrie_t * header_line_trie = hattrie_create();
 	hattrie_t * header_trie;
 	additional_parse_data data;
@@ -258,29 +277,14 @@ static inline void process_pages (page_count_t pages_to_process) {
 	data.trie = header_line_trie;
 	data.pages_to_process = pages_to_process;
 	
-	Wiktionary_namespace_t namespaces[] = { NAMESPACE_MAIN, NAMESPACE_NONE };
-	
-	do_parsing(handle_page, namespaces, &data);
+	do_parsing(stdin, handle_page, namespaces, &data);
 	
 	header_trie = hattrie_create();
 	
 	filter_headers(header_trie, header_line_trie);
 	
-	EPRINTF("found %zu potential header lines and %zu unique headers\n",
-	        hattrie_size(header_line_trie), hattrie_size(header_trie));
+	print_trie_info(header_line_trie, header_trie);
 	
-	char byte_count_buf[BYTE_COUNT_BUF_SIZE];
-	
-	format_byte_count(hattrie_sizeof(header_line_trie),
-		byte_count_buf,
-		sizeof byte_count_buf);
-	EPRINTF("used %s in header line trie and ", byte_count_buf);
-	
-	format_byte_count(hattrie_sizeof(header_trie),
-		byte_count_buf,
-		sizeof byte_count_buf);
-	EPRINTF("%s in header trie\n", byte_count_buf);
-	        
 	print_header_trie(header_trie);
 	
 	hattrie_free(header_line_trie);
@@ -290,33 +294,41 @@ static inline void process_pages (page_count_t pages_to_process) {
 
 static void get_pages_to_process (command_t * commands) {
 	page_count_t count;
+	option_t * options = commands->data;
 	
 	if (sscanf(commands->arg, PAGE_COUNT_SCAN_FORMAT, &count) != 1)
-		EPRINTF("'%s' is not a valid integer!", commands->arg);
+		CRASH_WITH_MSG("'%s' is not a valid integer!\n", commands->arg);
 		
-	option_t * options = commands->data;
 	options->pages_to_process = count;
 }
 
-int main (int argc, char * * argv) {
+static inline void process_args (int argc, char * * argv, option_t * options) {
 	command_t commands;
+	command_init(&commands, argv[0], "0");
+	commands.data = options;
+	
+	command_option(&commands, "-p", "--pages <count>",
+	               "number of pages in the given namespaces to process",
+				   get_pages_to_process);
+	
+	command_parse(&commands, argc, argv);
+	
+	command_free(&commands);
+}
+
+int main (int argc, char * * argv) {
 	option_t options;
 	options.pages_to_process = 0;
+	Wiktionary_namespace_t namespaces[] = { NAMESPACE_MAIN, NAMESPACE_NONE };
 	
-	command_init(&commands, argv[0], "0");
-	commands.data = &options;
-	command_option(&commands, "-p", "--pages <count>",
-	               "number of pages in the given namespaces to process", get_pages_to_process);
-	command_parse(&commands, argc, argv);
+	process_args(argc, argv, &options);
 	
 	if (options.pages_to_process == 0) {
 		options.pages_to_process = UINT32_MAX;
 		EPRINTF("No page limit given; set to %u\n", options.pages_to_process);
 	}
 	
-	command_free(&commands);
-	
-	process_pages(options.pages_to_process);
+	process_pages(options.pages_to_process, namespaces);
 	
 	return 0;
 }

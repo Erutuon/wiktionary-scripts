@@ -309,8 +309,9 @@ static inline void print_parser_info(XML_Parser parser,
 	        byte_count_buf, ((double) end_time - start_time) / CLOCKS_PER_SEC);
 }
 
-void do_parsing (page_callback handle_page,
-                 Wiktionary_namespace_t * namespaces,
+void do_parsing (FILE * XML_file,
+                 page_callback handle_page,
+				 Wiktionary_namespace_t * namespaces,
                  void * data) {
 	if (sizeof (XML_Char) != sizeof (char))
 		CRASH_WITH_MSG("This function assumes XML_Char (%zu bytes) is the same size as char (%zu bytes).",
@@ -335,13 +336,13 @@ void do_parsing (page_callback handle_page,
 	XML_SetCharacterDataHandler(parser, tag_data_handler);
 	
 	while (true) {
-		size_t len = fread(buf, 1, BUFSIZ, stdin);
+		size_t len = fread(buf, 1, BUFSIZ, XML_file);
 		bool done = false;
 		
-		if (ferror(stdin))
+		if (ferror(XML_file))
 			CRASH_WITH_MSG("read error");
 			
-		done = feof(stdin);
+		done = feof(XML_file);
 		
 		if (XML_Parse(parser, buf, len, done) == XML_STATUS_ERROR)
 			CRASH_WITH_MSG("Parse error at line %lu:\n%s\n",

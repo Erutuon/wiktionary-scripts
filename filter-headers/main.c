@@ -3,6 +3,7 @@
 #include <inttypes.h>
 #include <hat-trie/hat-trie.h>
 #include <string.h> // strndup is needed
+#include <time.h>
 
 #include "utils/buffer.h"
 #include "utils/parser.h"
@@ -14,6 +15,10 @@
 #define MALLOC_FAIL CRASH_WITH_MSG("could not allocate memory\n")
 
 #define MAX_HEADERS_PER_PAGE 4
+
+#define CHECK_FILE(file) \
+	if ((file) == NULL) \
+		perror("could not open file"), exit(-1)
 
 typedef uint32_t page_count_t;
 
@@ -27,6 +32,8 @@ typedef struct {
 	page_count_t pages_to_process;
 	hattrie_t * headers;
 	Wiktionary_namespace_t * namespaces;
+	FILE * input_file;
+	FILE * output_file;
 } option_t;
 
 typedef struct {
@@ -75,12 +82,14 @@ static inline void free_all_trie_mem (hattrie_t * trie) {
 	        hattrie_iter_next(iter)) {
 		value_t * storage = hattrie_iter_val(iter);
 		char * * mem = (char * *) *storage;
+		
 		for (int i = 0; i < MAX_HEADERS_PER_PAGE; ++i) {
 			if (mem[i] != NULL) {
 				free(mem[i]);
 				mem[i] = NULL;
 			}
 		}
+		
 		free(mem);
 		*storage = (value_t) NULL;
 	}
@@ -103,7 +112,7 @@ static inline void add_to_set (hattrie_t * headers_by_title,
 		headers = add_trie_mem(headers_by_title,
 		                       title,
 		                       title_len,
-		                       sizeof *headers * MAX_HEADERS_PER_PAGE);
+		                       sizeof * headers * MAX_HEADERS_PER_PAGE);
 		                       
 		for (int i = 0; i < MAX_HEADERS_PER_PAGE; ++i)
 			headers[i] = NULL;
@@ -117,7 +126,7 @@ static inline void add_to_set (hattrie_t * headers_by_title,
 			
 			if (header == NULL)
 				MALLOC_FAIL;
-			
+				
 			headers[i] = header;
 			
 			return;
@@ -126,13 +135,13 @@ static inline void add_to_set (hattrie_t * headers_by_title,
 	}
 	
 	EPRINTF("more than %d headers in '%s'\n",
-	               MAX_HEADERS_PER_PAGE,
-	               title);
+	        MAX_HEADERS_PER_PAGE,
+	        title);
 }
 
 static inline void find_headers (hattrie_t * headers_by_title,
                                  hattrie_t * headers_to_ignore,
-								 const char * title,
+                                 const char * title,
                                  const char * buffer,
                                  size_t len) {
 	const char * str = buffer;
@@ -149,7 +158,7 @@ static inline void find_headers (hattrie_t * headers_by_title,
 			                                 NULL);
 			                                 
 			if (header != NULL && header_len > 0
-					&& hattrie_tryget(headers_to_ignore, header, header_len) == NULL)
+			        && hattrie_tryget(headers_to_ignore, header, header_len) == NULL)
 				add_to_set(headers_by_title, title, header, header_len);
 				
 			str += line_len;
@@ -176,7 +185,7 @@ static bool handle_page (parse_info * info) {
 	buffer_t * buffer = &info->page.content;
 	find_headers(headers_by_title,
 	             headers_to_ignore,
-				 info->page.title,
+	             info->page.title,
 	             buffer_string(buffer),
 	             buffer_length(buffer));
 	             
@@ -204,17 +213,22 @@ static inline void print_header_counts (const header_count_t * const header_coun
 
 static inline void print_header_info (const char * const title,
                                       const size_t title_len,
-                                      const char * * const headers) {
-	printf("%.*s\t", (int) title_len, title);
+                                      const char * * const headers,
+                                      FILE * output_file) {
+	fprintf(output_file, "%.*s\t", (int) title_len, title);
+	
 	for (int i = 0; i < MAX_HEADERS_PER_PAGE && headers[i] != NULL; ++i) {
 		if (i > 0)
-			putchar('\t');
-		printf("%s", headers[i]);
+			putc('\t', output_file);
+			
+		fprintf(output_file, "%s", headers[i]);
 	}
-	putchar('\n');
+	
+	putc('\n', output_file);
 }
 
-static inline void print_headers_by_title (hattrie_t * trie) {
+static inline void print_headers_by_title (hattrie_t * trie,
+        FILE * output_file) {
 	hattrie_iter_t * iter;
 	
 	for (iter = hattrie_iter_begin(trie, true);
@@ -228,7 +242,7 @@ static inline void print_headers_by_title (hattrie_t * trie) {
 			CRASH_WITH_MSG("!!!\n");
 			
 		const char * * headers = *(const char * * *) value;
-		print_header_info(title, title_len, headers);
+		print_header_info(title, title_len, headers, output_file);
 	}
 	
 	hattrie_iter_free(iter);
@@ -236,7 +250,9 @@ static inline void print_headers_by_title (hattrie_t * trie) {
 
 static inline void process_pages (page_count_t pages_to_process,
                                   hattrie_t * headers_to_ignore,
-                                  Wiktionary_namespace_t * namespaces) {
+                                  Wiktionary_namespace_t * namespaces,
+                                  FILE * input_file,
+                                  FILE * output_file) {
 	hattrie_t * headers_by_title = hattrie_create();
 	additional_parse_data data;
 	
@@ -244,13 +260,13 @@ static inline void process_pages (page_count_t pages_to_process,
 	data.pages_to_process = pages_to_process;
 	data.headers_to_ignore = headers_to_ignore;
 	
-	do_parsing(handle_page, namespaces, &data);
+	do_parsing(input_file, handle_page, namespaces, &data);
 	
 	size_t title_count = hattrie_size(headers_by_title);
 	EPRINTF("gathered lists of headers for %zu page%s\n",
 	        title_count, title_count == 1 ? "" : "s");
 	        
-	print_headers_by_title(headers_by_title);
+	print_headers_by_title(headers_by_title, output_file);
 	
 	free_all_trie_mem(headers_by_title);
 	hattrie_free(headers_by_title);
@@ -272,9 +288,8 @@ static inline void add_headers (command_t * commands) {
 	const char * filename = commands->arg;
 	FILE * header_list = fopen(filename, "rb");
 	
-	if (header_list == NULL)
-		perror("could not open file"), exit(-1);
-		
+	CHECK_FILE(header_list);
+	
 	char buf[BUFSIZ];
 	size_t line_number = 0;
 	
@@ -338,6 +353,20 @@ static inline void add_namespaces (command_t * commands) {
 		        commands->arg);
 }
 
+static inline void get_input_file (command_t * commands) {
+	option_t * options = commands->data;
+	FILE * input_file = fopen(commands->arg, "rb");
+	CHECK_FILE(input_file);
+	options-> input_file = input_file;
+}
+
+static inline void get_output_file (command_t * commands) {
+	option_t * options = commands->data;
+	FILE * output_file = fopen(commands->arg, "wb");
+	CHECK_FILE(output_file);
+	options->output_file = output_file;
+}
+
 #define MAX_PAGES_TO_PROCESS UINT32_MAX
 
 static inline void process_args (option_t * options, int argc, char * * argv) {
@@ -364,6 +393,14 @@ static inline void process_args (option_t * options, int argc, char * * argv) {
 	               "list of namespace numbers",
 	               add_namespaces);
 	               
+	command_option(&commands, "-o", "--output <file>",
+	               "place output here",
+	               get_output_file);
+	               
+	command_option(&commands, "-i", "--input <file>",
+	               "XML page dump file",
+	               get_input_file);
+	               
 	command_parse(&commands, argc, argv);
 	
 	size_t count = hattrie_size(options->headers);
@@ -386,6 +423,9 @@ int main (int argc, char * * argv) {
 	option_t options;
 	hattrie_t * headers_to_ignore = hattrie_create();
 	Wiktionary_namespace_t namespaces[MAX_NAMESPACES];
+	time_t start_time, end_time;
+	
+	start_time = clock();
 	
 	if (headers_to_ignore == NULL)
 		CRASH_WITH_MSG("failed to create trie\n");
@@ -393,15 +433,29 @@ int main (int argc, char * * argv) {
 	options.pages_to_process = 0;
 	options.headers = headers_to_ignore;
 	options.namespaces = namespaces;
+	options.input_file = NULL;
+	options.output_file = NULL;
 	namespaces[0] = NAMESPACE_NONE; // sentinel!
 	
 	process_args(&options, argc, argv);
 	
+	if (options.input_file == NULL || options.output_file == NULL)
+		CRASH_WITH_MSG("input and output files required");
+	
 	process_pages(options.pages_to_process,
 	              options.headers,
-	              options.namespaces);
+	              options.namespaces,
+				  options.input_file,
+	              options.output_file);
 	              
 	hattrie_free(headers_to_ignore);
+	
+	if (fclose(options.output_file) == EOF)
+		perror("could not close file"), exit(-1);
+		
+	end_time = clock();
+	EPRINTF("total time: %f seconds\n",
+	        ((double) end_time - start_time) / CLOCKS_PER_SEC);
 	
 	return 0;
 }

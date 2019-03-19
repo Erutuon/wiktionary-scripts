@@ -10,6 +10,9 @@ bin*
 # not yet integrated into Makefile
 examples*
 
+# astyle backups
+*.orig
+
 # Prerequisites
 *.d
 
