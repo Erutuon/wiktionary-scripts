@@ -20,6 +20,10 @@ filter-headers: $(PARSER_OBJS) filter-headers.o get_header.o commander.o
 	gcc $(CFLAGS) $(PARSER_OBJS) filter-headers.o get_header.o commander.o \
 		-o bin/filter-headers $(LIBS) -lhat-trie
 
+find-templates: $(PARSER_OBJS) find-templates.o commander.o
+	gcc $(CFLAGS) $(PARSER_OBJS) find-templates.o commander.o \
+		-o bin/find-templates $(LIBS)
+
 commander.o: $(COMMANDER_DIR)/commander.c
 	gcc $(CFLAGS) -c $(COMMANDER_DIR)/commander.c -o commander.o
 
@@ -28,6 +32,9 @@ filter-headers.o: filter-headers/main.c
 
 all-headers.o: all-headers/main.c
 	gcc $(CFLAGS) -c all-headers/main.c -o all-headers.o
+
+find-templates.o: find-templates/main.c
+	gcc $(CFLAGS) -c find-templates/main.c -o find-templates.o
 
 buffer.o: utils/buffer.c
 	gcc $(CFLAGS) -c utils/buffer.c -o buffer.o
