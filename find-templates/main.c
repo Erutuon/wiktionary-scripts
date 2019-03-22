@@ -63,6 +63,15 @@ static inline str_slice_t get_template_name (const str_slice_t slice) {
 	return template_name;
 }
 
+static inline bool template_name_matches(const str_slice_t template_to_find,
+                                    const str_slice_arr_t template_name) {
+	return template_name.str != NULL
+	       && template_name.len == template_to_find.len
+	       && strncmp(template_name.str,
+	                  template_to_find.str,
+	                  template_to_find.len) == 0;
+}
+
 static str_slice_t find_template (const str_slice_t possible_template,
                                   const str_slice_arr_t * template_to_find,
                                   bool * found) {
@@ -72,7 +81,7 @@ static str_slice_t find_template (const str_slice_t possible_template,
 	bool closed = false;
 	
 	template_name = get_template_name(possible_template);
-		
+	
 	while (p <= end - STATIC_LEN("{{")) {
 		if (p[0] == '{' && p[1] == '{') {
 			str_slice_t subslice;
@@ -97,19 +106,15 @@ static str_slice_t find_template (const str_slice_t possible_template,
 	if (closed) {
 		str_slice_init(&template, possible_template.str, p - possible_template.str);
 		
-		if (template_name.str != NULL
-				&& template_name.len == template_to_find->len
-				&& strncmp(template_name.str,
-						   template_to_find->str,
-						   template_to_find->len) == 0) {
+		if (template_name_matches(template_name, *template_to_find)) {
 			*found = true;
 			printf("%.*s\n", (int) template.len, template.str);
 		}
 	} else {
 		str_slice_init(&template, NULL, (size_t) -1);
 		EPRINTF("invalid template at '%.*s'\n",
-				(int) MIN(possible_template.len, 64),
-				possible_template.str);
+		        (int) MIN(possible_template.len, 64),
+		        possible_template.str);
 	}
 	
 	return template;
@@ -129,7 +134,7 @@ static inline bool print_templates (const char * const title,
 		
 		if (open_template == NULL)
 			break;
-		
+			
 		str_slice_t possible_template;
 		str_slice_init(&possible_template, open_template, end - open_template);
 		str_slice_t template = find_template(possible_template,

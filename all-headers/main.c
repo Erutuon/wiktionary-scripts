@@ -23,37 +23,14 @@ typedef struct {
 
 #define PAGE_COUNT_SCAN_FORMAT "%" SCNu32
 
-static inline void buf_err (const size_t buf_size,
-                            const char * str,
-                            const size_t len) {
-	char byte_count_buf[BYTE_COUNT_BUF_SIZE];
-	
-	format_byte_count(len, byte_count_buf, sizeof byte_count_buf);
-	EPRINTF("string '%.*s' (%s) too large ",
-	        (int) len, str, byte_count_buf);
-	        
-	format_byte_count(buf_size, byte_count_buf, sizeof byte_count_buf);
-	CRASH_WITH_MSG("for buffer (%s)!\n", byte_count_buf);
-}
-
-static inline void add_to_set (hattrie_t * trie,
-                               const char * str,
-                               size_t len) {
-	char buf[1024];
-	value_t * count;
-	
-	
-	if (len > sizeof buf - 1)
-		buf_err(sizeof buf, str, len);
-		
-	memcpy(buf, str, len);
-	buf[len] = '\0';
-	
-	count = hattrie_tryget(trie, buf, len);
+static inline void increment_count (hattrie_t * trie,
+                                    const char * str,
+                                    size_t len) {
+	value_t * count = hattrie_tryget(trie, str, len);
 	
 	if (count == NULL) {
-		count = hattrie_get(trie, buf, len);
-		*count = 1;
+		count = hattrie_get(trie, str, len);
+		*count = (value_t) 1;
 	} else
 		++*count;
 }
@@ -79,11 +56,17 @@ static inline void find_headers (hattrie_t * header_line_trie,
 			const char * line_start = str;
 			size_t line_len = get_line_len(line_start, end);
 			
-			add_to_set(header_line_trie, line_start, line_len);
+			increment_count(header_line_trie, line_start, line_len);
 			
 			str += line_len;
-		} else // Skip line (if any) and one newline.
-			while (str < end && *str++ != '\n');
+		} else {
+			// Skip line and one or more newlines.
+			while (str < end && *str != '\n')
+				++str;
+				
+			while (str < end && *str == '\n')
+				++str;
+		}
 	}
 }
 
@@ -157,7 +140,7 @@ static inline void add_header_count (hattrie_t * header_trie,
 	else
 		header_counts = (header_count_t *) *header_storage;
 		
-	header_counts[header_level - 1] = header_count;
+	header_counts[header_level - 1] += header_count;
 }
 
 // Take trie of header lines and add any valid header text to new trie.
@@ -183,13 +166,13 @@ static inline void filter_headers (hattrie_t * header_trie,
 		// number of times that they occur.
 		if (header != NULL) {
 			if (header_len > 0) {
-				value_t * header_line_storage = hattrie_iter_val(iter);;
+				value_t * header_line_storage = hattrie_iter_val(iter);
 				header_count_t header_count;
 				
 				if (header_line_storage == NULL)
 					CRASH_WITH_MSG("!!!");
 					
-				header_count = (header_count_t) * header_line_storage;
+				header_count = (header_count_t) *header_line_storage;
 				
 				add_header_count(header_trie,
 				                 header,
@@ -309,8 +292,8 @@ static inline void process_args (int argc, char * * argv, option_t * options) {
 	
 	command_option(&commands, "-p", "--pages <count>",
 	               "number of pages in the given namespaces to process",
-				   get_pages_to_process);
-	
+	               get_pages_to_process);
+	               
 	command_parse(&commands, argc, argv);
 	
 	command_free(&commands);
