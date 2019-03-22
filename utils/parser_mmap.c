@@ -1,17 +1,23 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
 #include <time.h>
 #include <expat.h>
 
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+
 #include "buffer.h"
 #include "parser.h"
 
 #define PRINT_STR(var) EPRINTF(#var ": %s\n", var)
-#define CRASH exit(EXIT_FAILURE)
 
 #define STRING_EQUALS(str1, str2) (strcmp((str1), (str2)) == 0)
 #define ARRAY_SIZE(arr) (sizeof (arr) / sizeof (arr)[0])
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 // pages are pretty long!
 #define PAGE_CONTENT_BUFFER_SIZE 1024 * 16
@@ -310,7 +316,7 @@ static inline void print_parser_info(XML_Parser parser,
 	        byte_count_buf, ((double) end_time - start_time) / CLOCKS_PER_SEC);
 }
 
-void do_parsing (FILE * XML_file,
+void do_parsing (const char * const XML_file,
                  page_callback handle_page,
 				 Wiktionary_namespace_t * namespaces,
                  void * data) {
@@ -321,9 +327,24 @@ void do_parsing (FILE * XML_file,
 	time_t start_time, end_time;
 	parse_info info;
 	XML_Parser parser;
-	XML_Char buf[BUFSIZ];
+	int fd;
+	struct stat sb;
+	size_t offset;
+	size_t increment;
 	
 	start_time = clock();
+	
+	fd = open(XML_file, O_RDONLY);
+	
+	if (fd == -1)
+		printf("filename: %s\n", XML_file), perror("could not open file"), exit(EXIT_FAILURE);
+	
+	if (fstat(fd, &sb) == -1)
+		perror("could not stat file"), exit(EXIT_FAILURE);
+	
+	offset = 0;
+	increment = sysconf(_SC_PAGE_SIZE) * 4096;
+	
 	parser = XML_ParserCreate("UTF-8");
 	
 	if (!parser)
@@ -336,22 +357,26 @@ void do_parsing (FILE * XML_file,
 	XML_SetElementHandler(parser, tag_start_handler, tag_end_handler);
 	XML_SetCharacterDataHandler(parser, tag_data_handler);
 	
-	while (true) {
-		size_t len = fread(buf, 1, BUFSIZ, XML_file);
-		bool done = false;
+	while (offset < (size_t) sb.st_size) {
+		size_t len = MIN(increment, sb.st_size - offset);
+		XML_Char * file = mmap(NULL, len,
+			PROT_READ, MAP_PRIVATE, fd, offset);
+		bool done = len < increment;
 		
-		if (ferror(XML_file))
-			perror("read error"), CRASH;
-			
-		done = feof(XML_file);
+		if (file == MAP_FAILED)
+			perror("could not map file"), exit(EXIT_FAILURE);
 		
-		if (XML_Parse(parser, buf, len, done) == XML_STATUS_ERROR)
+		if (XML_Parse(parser, file, len, done) == XML_STATUS_ERROR)
 			CRASH_WITH_MSG("Parse error at line %lu:\n%s\n",
 			               XML_GetCurrentLineNumber(parser),
 			               XML_ErrorString(XML_GetErrorCode(parser)));
-			               
-		if (done || !info.continue_parsing)
+		
+		munmap(file, len);
+		
+		if (!info.continue_parsing)
 			break;
+		
+		offset += increment;
 	}
 	
 	end_time = clock();

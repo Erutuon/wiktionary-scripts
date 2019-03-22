@@ -357,7 +357,7 @@ static inline void get_input_file (command_t * commands) {
 	option_t * options = commands->data;
 	FILE * input_file = fopen(commands->arg, "rb");
 	CHECK_FILE(input_file);
-	options-> input_file = input_file;
+	options->input_file = input_file;
 }
 
 static inline void get_output_file (command_t * commands) {
@@ -440,7 +440,7 @@ int main (int argc, char * * argv) {
 	process_args(&options, argc, argv);
 	
 	if (options.input_file == NULL || options.output_file == NULL)
-		CRASH_WITH_MSG("input and output files required");
+		CRASH_WITH_MSG("input and output files required\n");
 	
 	process_pages(options.pages_to_process,
 	              options.headers,
@@ -452,7 +452,9 @@ int main (int argc, char * * argv) {
 	
 	if (fclose(options.output_file) == EOF)
 		perror("could not close file"), exit(-1);
-		
+	
+	fclose(options.input_file);
+	
 	end_time = clock();
 	EPRINTF("total time: %f seconds\n",
 	        ((double) end_time - start_time) / CLOCKS_PER_SEC);

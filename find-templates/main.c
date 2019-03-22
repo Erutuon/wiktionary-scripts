@@ -236,7 +236,7 @@ void parse_arguments (int argc, char * * argv, additional_parse_data * data) {
 	command_option(&commands, "-f", "--filter <text to find>",
 	               "only process pages containing this text",
 	               get_filter);
-	               
+	
 	command_parse(&commands, argc, argv);
 	
 	command_free(&commands);
