@@ -10,62 +10,114 @@
 
 #define MAX_PAGES 10
 
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define STATIC_LEN(str) (sizeof (str) - 1)
+#define CONTAINS_STR(a, b) (strstr((a), (b)) != NULL)
+#define STR_SLICE_END(slice) ((slice).str + (slice).len)
 
+typedef struct {
+	size_t len;
+	const char * str;
+} str_slice_t;
+
+// Type to cast `struct _template_name_t` and `struct _to_find_t`
+// in additional_parse_data to.
+typedef struct {
+	size_t len;
+	char str[1];
+} str_slice_arr_t;
 
 typedef struct {
 	unsigned int max_matches;
-	char template_name[PAGE_NAME_LEN];
-	size_t template_name_len;
-	char to_find[PAGE_NAME_LEN + sizeof "{{|" - 1];
 	char * filter;
+	struct _template_name_t {
+		size_t len;
+		char str[PAGE_NAME_LEN];
+	} template_name;
+	struct _to_find_t {
+		size_t len;
+		char str[PAGE_NAME_LEN + STATIC_LEN("{{|")];
+	} to_find;
 } additional_parse_data;
 
-// Only works if template name doesn't contain templates (which should hold
-// true in mainspace).
-static const char * get_template_name (const char * const template_start,
-                                       const size_t len,
-                                       size_t * name_len) {
-	const char * template_name = template_start + sizeof "{{" - 1;
-	const char * p = template_name;
-	const char * const end = template_start + len;
+static inline void str_slice_init(str_slice_t * slice, const char * str, const size_t len) {
+	if (slice == NULL)
+		CRASH_WITH_MSG("!!!");
+		
+	slice->str = str;
+	slice->len = len;
+}
+
+// Will only work if template name doesn't contain templates (which should hold
+// true in mainspace) and template is well-formed.
+static inline str_slice_t get_template_name (const str_slice_t slice) {
+	const char * name_start = slice.str + STATIC_LEN("{{");
+	const char * p = name_start;
+	const char * const end = STR_SLICE_END(slice);
+	str_slice_t template_name;
 	
 	while (p < end && !(p[0] == '|' || (p[0] == '}' && p[1] == '}')))
 		p++;
 		
-	*name_len = p - template_name;
+	str_slice_init(&template_name, name_start, p - name_start);
 	return template_name;
 }
 
-static const char * get_template (const char * const template_start,
-                                  const size_t len,
-                                  size_t * template_len) {
-	int nesting_level = 1;
-	const char * p = template_start + sizeof "{{" - 1;
-	const char * const end = template_start + len;
+static str_slice_t find_template (const str_slice_t possible_template,
+                                  const str_slice_arr_t * template_to_find,
+                                  bool * found) {
+	const char * p = possible_template.str + STATIC_LEN("{{");
+	const char * const end = STR_SLICE_END(possible_template);
+	str_slice_t template, template_name;
+	bool closed = false;
 	
-	while (nesting_level > 0 && p <= end - (sizeof "{{" - 1)) {
+	template_name = get_template_name(possible_template);
+		
+	while (p <= end - STATIC_LEN("{{")) {
 		if (p[0] == '{' && p[1] == '{') {
-			p += sizeof "{{" - 1;
-			++nesting_level;
+			str_slice_t subslice;
+			str_slice_init(&subslice, p, end - p);
+			str_slice_t inner_template
+			    = find_template(subslice,
+			                    template_to_find,
+			                    found);
+			                    
+			if (inner_template.str == NULL)
+				break;
+				
+			p += inner_template.len;
 		} else if (p[0] == '}' && p[1] == '}') {
-			p += sizeof "}}" - 1;
-			--nesting_level;
+			p += STATIC_LEN("}}");
+			closed = true;
+			break;
 		} else
 			++p;
 	}
 	
-	if (nesting_level == 0) {
-		*template_len = p - template_start;
-		return template_start;
+	if (closed) {
+		str_slice_init(&template, possible_template.str, p - possible_template.str);
+		
+		if (template_name.str != NULL
+				&& template_name.len == template_to_find->len
+				&& strncmp(template_name.str,
+						   template_to_find->str,
+						   template_to_find->len) == 0) {
+			*found = true;
+			printf("%.*s\n", (int) template.len, template.str);
+		}
+	} else {
+		str_slice_init(&template, NULL, (size_t) -1);
+		EPRINTF("invalid template at '%.*s'\n",
+				(int) MIN(possible_template.len, 64),
+				possible_template.str);
 	}
 	
-	return NULL;
+	return template;
 }
 
-static bool print_templates (const char * const title,
-                             const buffer_t * const str,
-                             const char * const template_to_find,
-                             const size_t template_to_find_len) {
+static inline bool print_templates (const char * const title,
+                                    const buffer_t * const str,
+                                    const str_slice_arr_t * template_to_find) {
 	const char * p = buffer_string(str);
 	const char * const end = p + buffer_length(str);
 	bool found_template = false;
@@ -75,34 +127,19 @@ static bool print_templates (const char * const title,
 	while (p < end) {
 		const char * const open_template = strstr(p, "{{");
 		
-		if (open_template != NULL) {
-			size_t template_len, template_name_len;;
-			const char * const template_name
-			    = get_template_name(open_template,
-			                        end - open_template,
-			                        &template_name_len);
-			                        
-			if (template_name_len == template_to_find_len
-			        && strncmp(template_name, template_to_find, template_to_find_len) == 0) {
-				const char * const template = get_template(open_template,
-				        end - open_template,
-				        &template_len);
-				        
-				found_template = true;
-				
-				if (template != NULL)
-					printf("%.*s\n", (int) template_len, template);
-					
-				else
-					EPRINTF("non-matching template at '%.*s'\n",
-					        (int) buffer_length(str),
-					        buffer_string(str));
-					        
-				p = open_template + template_len;
-			} else
-				p = open_template + sizeof "{{" - 1;
-		} else
-			p = end;
+		if (open_template == NULL)
+			break;
+		
+		str_slice_t possible_template;
+		str_slice_init(&possible_template, open_template, end - open_template);
+		str_slice_t template = find_template(possible_template,
+		                                     template_to_find,
+		                                     &found_template);
+		                                     
+		if (template.str != NULL)
+			p = STR_SLICE_END(template);
+		else
+			p = possible_template.str + STATIC_LEN("{{");
 	}
 	
 	return found_template;
@@ -115,16 +152,16 @@ static bool handle_page (parse_info * info) {
 	static unsigned int match_count = 0;
 	
 	if ((data->filter == NULL
-	        || strstr(buffer_string(buffer), data->filter) != NULL)
-	        && strstr(buffer_string(buffer), data->to_find) != NULL) {
+	        || CONTAINS_STR(buffer_string(buffer), data->filter))
+	        && CONTAINS_STR(buffer_string(buffer), data->to_find.str)) {
 		bool found_template =
 		    print_templates(page->title,
 		                    buffer,
-		                    data->template_name,
-		                    data->template_name_len);
+		                    (str_slice_arr_t *) &data->template_name);
 		                    
 		if (found_template) {
 			++match_count;
+			
 			if (match_count >= data->max_matches)
 				return false;
 		}
@@ -154,9 +191,11 @@ static void get_template_to_find (command_t * commands) {
 	else if (len >= PAGE_NAME_LEN)
 		CRASH_WITH_MSG("template name too long");
 		
-	strcpy(data->template_name, commands->arg);
-	data->template_name_len = strlen(data->template_name);
-	sprintf(data->to_find, "{{%s|", data->template_name);
+	strcpy(data->template_name.str, commands->arg);
+	data->template_name.len = strlen(data->template_name.str);
+	data->to_find.len = sprintf(data->to_find.str,
+	                            "{{%s|",
+	                            data->template_name.str);
 }
 
 static void get_filter (command_t * commands) {
@@ -203,15 +242,15 @@ int main (int argc, char * * argv) {
 	Wiktionary_namespace_t namespaces[] = { NAMESPACE_MAIN, NAMESPACE_NONE };
 	
 	data.max_matches = 0;
-	data.template_name[0] = '\0';
-	data.to_find[0] = '\0';
+	data.template_name.str[0] = '\0';
+	data.to_find.str[0] = '\0';
 	data.filter = NULL;
 	
 	parse_arguments(argc, argv, &data);
 	
 	if (data.max_matches == 0)
 		CRASH_WITH_MSG("--match-count required\n");
-	else if (strlen(data.template_name) == 0)
+	else if (strlen(data.template_name.str) == 0)
 		CRASH_WITH_MSG("--template-name required");
 		
 	do_parsing(stdin, handle_page, namespaces, &data);
