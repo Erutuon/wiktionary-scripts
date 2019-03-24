@@ -369,12 +369,40 @@ static inline void get_output_file (command_t * commands) {
 
 #define MAX_PAGES_TO_PROCESS UINT32_MAX
 
-static inline void process_args (option_t * options, int argc, char * * argv) {
+static inline void process_args (option_t * options,
+                                 int argc,
+                                 char * * argv,
+                                 hattrie_t * headers_to_ignore,
+                                 Wiktionary_namespace_t * namespaces) {
 	command_t commands;
 	command_init(&commands, argv[0], "0");
 	commands.data = options;
-	
 	char command_desc[128]; // Use this in only one command.
+	
+	options->pages_to_process = 0;
+	options->headers = headers_to_ignore;
+	options->namespaces = namespaces;
+	options->input_file = NULL;
+	options->output_file = NULL;
+	namespaces[0] = NAMESPACE_NONE; // sentinel!
+	
+	command_option(&commands, "-i", "--input <file>",
+	               "XML page dump file",
+	               get_input_file);
+	               
+	command_option(&commands, "-o", "--output <file>",
+	               "place output here",
+	               get_output_file);
+	               
+	command_option(&commands, "-n", "--namespaces <numbers>",
+	               "list of namespace numbers",
+	               add_namespaces);
+	               
+	command_option(&commands, "-x", "--exclude-headers <file>",
+	               "file containing newline-separated headers "
+	               "that should not be tracked",
+	               add_headers);
+	               
 	snprintf(command_desc,
 	         sizeof command_desc,
 	         "number of pages in the given namespaces to process "
@@ -383,23 +411,6 @@ static inline void process_args (option_t * options, int argc, char * * argv) {
 	command_option(&commands, "-p", "--pages <count>",
 	               command_desc,
 	               get_pages_to_process);
-	               
-	command_option(&commands, "-x", "--exclude-headers <file>",
-	               "file containing newline-separated headers "
-	               "that should not be tracked",
-	               add_headers);
-	               
-	command_option(&commands, "-n", "--namespaces <numbers>",
-	               "list of namespace numbers",
-	               add_namespaces);
-	               
-	command_option(&commands, "-o", "--output <file>",
-	               "place output here",
-	               get_output_file);
-	               
-	command_option(&commands, "-i", "--input <file>",
-	               "XML page dump file",
-	               get_input_file);
 	               
 	command_parse(&commands, argc, argv);
 	
@@ -417,6 +428,11 @@ static inline void process_args (option_t * options, int argc, char * * argv) {
 	}
 	
 	command_free(&commands);
+	
+	if (options->input_file == NULL)
+		CRASH_WITH_MSG("input file required\n");
+	else if (options->output_file == NULL)
+		CRASH_WITH_MSG("output file required\n");
 }
 
 int main (int argc, char * * argv) {
@@ -430,34 +446,23 @@ int main (int argc, char * * argv) {
 	if (headers_to_ignore == NULL)
 		CRASH_WITH_MSG("failed to create trie\n");
 		
-	options.pages_to_process = 0;
-	options.headers = headers_to_ignore;
-	options.namespaces = namespaces;
-	options.input_file = NULL;
-	options.output_file = NULL;
-	namespaces[0] = NAMESPACE_NONE; // sentinel!
-	
-	process_args(&options, argc, argv);
-	
-	if (options.input_file == NULL || options.output_file == NULL)
-		CRASH_WITH_MSG("input and output files required\n");
+	process_args(&options, argc, argv, headers_to_ignore, namespaces);
 	
 	process_pages(options.pages_to_process,
 	              options.headers,
 	              options.namespaces,
-				  options.input_file,
+	              options.input_file,
 	              options.output_file);
 	              
 	hattrie_free(headers_to_ignore);
 	
-	if (fclose(options.output_file) == EOF)
+	if (fclose(options.output_file) == EOF
+	        || fclose(options.input_file) == EOF)
 		perror("could not close file"), exit(-1);
-	
-	fclose(options.input_file);
-	
+		
 	end_time = clock();
 	EPRINTF("total time: %f seconds\n",
 	        ((double) end_time - start_time) / CLOCKS_PER_SEC);
-	
+	        
 	return 0;
 }

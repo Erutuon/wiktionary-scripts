@@ -15,6 +15,10 @@
 #define CONTAINS_STR(a, b) (strstr((a), (b)) != NULL)
 #define STR_SLICE_END(slice) ((slice).str + (slice).len)
 
+#define CHECK_FILE(file) \
+	if ((file) == NULL) \
+		perror("could not open file"), exit(-1)
+
 typedef struct {
 	size_t len;
 	const char * str;
@@ -25,10 +29,12 @@ typedef struct {
 typedef struct {
 	size_t len;
 	char str[1];
-} str_slice_arr_t;
+} str_arr_t;
 
 typedef struct {
 	unsigned int max_matches;
+	unsigned int match_count;
+	FILE * input_file, * output_file;
 	char * filter;
 	struct _template_name_t {
 		size_t len;
@@ -64,7 +70,7 @@ static inline str_slice_t get_template_name (const str_slice_t slice) {
 }
 
 static inline bool template_name_matches(const str_slice_t template_to_find,
-                                    const str_slice_arr_t template_name) {
+        const str_arr_t template_name) {
 	return template_name.str != NULL
 	       && template_name.len == template_to_find.len
 	       && strncmp(template_name.str,
@@ -73,7 +79,7 @@ static inline bool template_name_matches(const str_slice_t template_to_find,
 }
 
 static str_slice_t find_template (const str_slice_t possible_template,
-                                  const str_slice_arr_t * template_to_find,
+                                  const str_arr_t * template_to_find,
                                   bool * found) {
 	const char * p = possible_template.str + STATIC_LEN("{{");
 	const char * const end = STR_SLICE_END(possible_template);
@@ -122,7 +128,7 @@ static str_slice_t find_template (const str_slice_t possible_template,
 
 static inline bool print_templates (const char * const title,
                                     const buffer_t * const str,
-                                    const str_slice_arr_t * template_to_find) {
+                                    const str_arr_t * template_to_find) {
 	const char * p = buffer_string(str);
 	const char * const end = p + buffer_length(str);
 	bool found_template = false;
@@ -141,10 +147,9 @@ static inline bool print_templates (const char * const title,
 		                                     template_to_find,
 		                                     &found_template);
 		                                     
-		if (template.str != NULL)
-			p = STR_SLICE_END(template);
-		else
-			p = possible_template.str + STATIC_LEN("{{");
+		p = (template.str != NULL)
+		    ? STR_SLICE_END(template)
+		    : possible_template.str + STATIC_LEN("{{");
 	}
 	
 	return found_template;
@@ -154,7 +159,6 @@ static bool handle_page (parse_info * info) {
 	page_info * page = &info->page;
 	buffer_t * buffer = &page->content;
 	additional_parse_data * data = info->additional_data;
-	static unsigned int match_count = 0;
 	
 	if ((data->filter == NULL
 	        || CONTAINS_STR(buffer_string(buffer), data->filter))
@@ -162,29 +166,26 @@ static bool handle_page (parse_info * info) {
 		bool found_template =
 		    print_templates(page->title,
 		                    buffer,
-		                    (str_slice_arr_t *) &data->template_name);
+		                    (str_arr_t *) &data->template_name);
 		                    
-		if (found_template) {
-			++match_count;
-			
-			if (match_count >= data->max_matches)
-				return false;
-		}
+		if (found_template && ++data->match_count >= data->max_matches)
+			return false;
 	}
 	
 	return true;
 }
-
-static void get_page_count (command_t * commands) {
+static inline void get_input_file (command_t * commands) {
 	additional_parse_data * data = commands->data;
-	unsigned int count = 0;
-	
-	if (strcmp(commands->arg, "max") == 0)
-		count = UINT_MAX;
-	else if (sscanf(commands->arg, "%u", &count) != 1 || count == 0)
-		CRASH_WITH_MSG("expected positive integer greater than 0\n");
-		
-	data->max_matches = count;
+	FILE * input_file = fopen(commands->arg, "rb");
+	CHECK_FILE(input_file);
+	data->input_file = input_file;
+}
+
+static inline void get_output_file (command_t * commands) {
+	additional_parse_data * data = commands->data;
+	FILE * output_file = fopen(commands->arg, "wb");
+	CHECK_FILE(output_file);
+	data->output_file = output_file;
 }
 
 static void get_template_to_find (command_t * commands) {
@@ -202,6 +203,19 @@ static void get_template_to_find (command_t * commands) {
 	                            "{{%s|",
 	                            data->template_name.str);
 }
+
+static void get_page_count (command_t * commands) {
+	additional_parse_data * data = commands->data;
+	unsigned int count = 0;
+	
+	if (strcmp(commands->arg, "max") == 0)
+		count = UINT_MAX;
+	else if (sscanf(commands->arg, "%u", &count) != 1 || count == 0)
+		CRASH_WITH_MSG("expected positive integer greater than 0\n");
+		
+	data->max_matches = count;
+}
+
 
 static void get_filter (command_t * commands) {
 	additional_parse_data * data = commands->data;
@@ -221,45 +235,75 @@ static void get_filter (command_t * commands) {
 void parse_arguments (int argc, char * * argv, additional_parse_data * data) {
 	command_t commands;
 	
+	data->max_matches = 0;
+	data->match_count = 0;
+	data->template_name.str[0] = '\0';
+	data->to_find.str[0] = '\0';
+	data->filter = NULL;
+	
 	command_init(&commands, argv[0], "0");
 	
 	commands.data = (void *) data;
 	
-	command_option(&commands, "-m", "--match-count <num>",
-	               "number of matches to return",
-	               get_page_count);
+	command_option(&commands, "-i", "--input <file>",
+	               "XML page dump file",
+	               get_input_file);
+	               
+	command_option(&commands, "-o", "--output <file>",
+	               "place output here",
+	               get_output_file);
 	               
 	command_option(&commands, "-t", "--template-name <title>",
 	               "title of template to find",
 	               get_template_to_find);
 	               
+	command_option(&commands, "-p", "--page-count <num>",
+	               "return matches from this many pages (not counting non-matching pages)",
+	               get_page_count);
+	               
 	command_option(&commands, "-f", "--filter <text to find>",
 	               "only process pages containing this text",
 	               get_filter);
-	
+	               
 	command_parse(&commands, argc, argv);
 	
 	command_free(&commands);
+	
+	if (data->input_file == NULL)
+		CRASH_WITH_MSG("input file required\n");
+	else if (data->output_file == NULL)
+		CRASH_WITH_MSG("output file required\n");
+	else if (data->max_matches == 0)
+		CRASH_WITH_MSG("--match-count required\n");
+	else if (strlen(data->template_name.str) == 0)
+		CRASH_WITH_MSG("--template-name required\n");
+		
+	EPRINTF("searching for instances of 'Template:%.*s' on up to %u pages",
+	        (int) data->template_name.len,
+	        data->template_name.str,
+	        data->max_matches);
+	        
+	if (data->filter != NULL)
+		EPRINTF(" containing '%s'", data->filter);
+		
+	EPRINTF("\n");
 }
 
 int main (int argc, char * * argv) {
 	additional_parse_data data;
 	Wiktionary_namespace_t namespaces[] = { NAMESPACE_MAIN, NAMESPACE_NONE };
 	
-	data.max_matches = 0;
-	data.template_name.str[0] = '\0';
-	data.to_find.str[0] = '\0';
-	data.filter = NULL;
-	
 	parse_arguments(argc, argv, &data);
 	
-	if (data.max_matches == 0)
-		CRASH_WITH_MSG("--match-count required\n");
-	else if (strlen(data.template_name.str) == 0)
-		CRASH_WITH_MSG("--template-name required");
-		
 	do_parsing(stdin, handle_page, namespaces, &data);
 	
+	EPRINTF("found instances of 'Template:%.*s' on %u pages\n",
+	        (int) data.template_name.len,
+	        data.template_name.str,
+	        data.match_count);
+	        
 	if (data.filter != NULL)
 		free(data.filter);
+		
+	return 0;
 }

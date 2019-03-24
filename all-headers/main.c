@@ -19,9 +19,14 @@ typedef struct additional_parse_data {
 
 typedef struct {
 	page_count_t pages_to_process;
+	FILE * input_file, * output_file;
 } option_t;
 
 #define PAGE_COUNT_SCAN_FORMAT "%" SCNu32
+
+#define CHECK_FILE(file) \
+	if ((file) == NULL) \
+		perror("could not open file"), exit(-1)
 
 static inline void increment_count (hattrie_t * trie,
                                     const char * str,
@@ -275,6 +280,20 @@ static inline void process_pages (page_count_t pages_to_process,
 	hattrie_free(header_trie);
 }
 
+static inline void get_input_file (command_t * commands) {
+	option_t * options = commands->data;
+	FILE * input_file = fopen(commands->arg, "rb");
+	CHECK_FILE(input_file);
+	options->input_file = input_file;
+}
+
+static inline void get_output_file (command_t * commands) {
+	option_t * options = commands->data;
+	FILE * output_file = fopen(commands->arg, "wb");
+	CHECK_FILE(output_file);
+	options->output_file = output_file;
+}
+
 static void get_pages_to_process (command_t * commands) {
 	page_count_t count;
 	option_t * options = commands->data;
@@ -287,29 +306,44 @@ static void get_pages_to_process (command_t * commands) {
 
 static inline void process_args (int argc, char * * argv, option_t * options) {
 	command_t commands;
+	
+	options->pages_to_process = 0;
+	options->input_file = NULL;
+	options->output_file = NULL;
+	
 	command_init(&commands, argv[0], "0");
 	commands.data = options;
 	
+	command_option(&commands, "-i", "--input <file>",
+	               "XML page dump file",
+	               get_input_file);
+	               
+	command_option(&commands, "-o", "--output <file>",
+	               "place output here",
+	               get_output_file);
+	               
 	command_option(&commands, "-p", "--pages <count>",
-	               "number of pages in the given namespaces to process",
+	               "number of pages to process",
 	               get_pages_to_process);
 	               
 	command_parse(&commands, argc, argv);
 	
 	command_free(&commands);
+	
+	if (options->pages_to_process == 0) {
+		options->pages_to_process = UINT32_MAX;
+		EPRINTF("No page limit given; set to %u\n", options->pages_to_process);
+	} else if (options->input_file == NULL)
+		CRASH_WITH_MSG("input file required\n");
+	else if (options->output_file == NULL)
+		CRASH_WITH_MSG("output file required\n");
 }
 
 int main (int argc, char * * argv) {
 	option_t options;
-	options.pages_to_process = 0;
 	Wiktionary_namespace_t namespaces[] = { NAMESPACE_MAIN, NAMESPACE_NONE };
 	
 	process_args(argc, argv, &options);
-	
-	if (options.pages_to_process == 0) {
-		options.pages_to_process = UINT32_MAX;
-		EPRINTF("No page limit given; set to %u\n", options.pages_to_process);
-	}
 	
 	process_pages(options.pages_to_process, namespaces);
 	
