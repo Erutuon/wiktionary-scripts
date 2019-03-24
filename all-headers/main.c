@@ -177,7 +177,7 @@ static inline void filter_headers (hattrie_t * header_trie,
 				if (header_line_storage == NULL)
 					CRASH_WITH_MSG("!!!");
 					
-				header_count = (header_count_t) *header_line_storage;
+				header_count = (header_count_t) * header_line_storage;
 				
 				add_header_count(header_trie,
 				                 header,
@@ -194,7 +194,8 @@ static inline void filter_headers (hattrie_t * header_trie,
 	hattrie_iter_free(iter);
 }
 
-static inline void print_header_counts (const header_count_t * const header_counts) {
+static inline void print_header_counts (FILE * output_file,
+                                        const header_count_t * const header_counts) {
 	bool first = true;
 	
 	for (header_level_t header_level = 1;
@@ -203,22 +204,24 @@ static inline void print_header_counts (const header_count_t * const header_coun
 		const header_count_t count = header_counts[header_level - 1];
 		
 		if (count > 0) {
-			printf("%s%hd:%d", first ? "" : ";", header_level, count);
-			
+			fprintf(output_file, "%s%hd:%d", first ? "" : ";",
+			        header_level, count);
+			        
 			first = false;
 		}
 	}
 }
 
-static inline void print_header_info (const char * const key,
+static inline void print_header_info (FILE * output_file,
+                                      const char * const key,
                                       const size_t len,
                                       const header_count_t * const header_counts) {
-	printf("%.*s\t", (int) len, key);
-	print_header_counts(header_counts);
-	putchar('\n');
+	fprintf(output_file, "%.*s\t", (int) len, key);
+	print_header_counts(output_file, header_counts);
+	putc('\n', output_file);
 }
 
-static inline void print_header_trie (hattrie_t * trie) {
+static inline void print_header_trie (FILE * output_file, hattrie_t * trie) {
 	hattrie_iter_t * iter;
 	
 	for (iter = hattrie_iter_begin(trie, true);
@@ -232,7 +235,7 @@ static inline void print_header_trie (hattrie_t * trie) {
 			CRASH_WITH_MSG("!!!");
 			
 		header_count_t * header_counts = (header_count_t *) *value;
-		print_header_info(key, len, header_counts);
+		print_header_info(output_file, key, len, header_counts);
 	}
 	
 	hattrie_iter_free(iter);
@@ -257,7 +260,9 @@ static inline void print_trie_info (hattrie_t * header_line_trie,
 }
 
 static inline void process_pages (page_count_t pages_to_process,
-                                  Wiktionary_namespace_t * namespaces) {
+                                  Wiktionary_namespace_t * namespaces,
+                                  FILE * input_file,
+                                  FILE * output_file) {
 	hattrie_t * header_line_trie = hattrie_create();
 	hattrie_t * header_trie;
 	additional_parse_data data;
@@ -265,7 +270,7 @@ static inline void process_pages (page_count_t pages_to_process,
 	data.trie = header_line_trie;
 	data.pages_to_process = pages_to_process;
 	
-	do_parsing(stdin, handle_page, namespaces, &data);
+	do_parsing(input_file, handle_page, namespaces, &data);
 	
 	header_trie = hattrie_create();
 	
@@ -273,7 +278,7 @@ static inline void process_pages (page_count_t pages_to_process,
 	
 	print_trie_info(header_line_trie, header_trie);
 	
-	print_header_trie(header_trie);
+	print_header_trie(output_file, header_trie);
 	
 	hattrie_free(header_line_trie);
 	free_all_trie_mem(header_trie);
@@ -345,7 +350,10 @@ int main (int argc, char * * argv) {
 	
 	process_args(argc, argv, &options);
 	
-	process_pages(options.pages_to_process, namespaces);
-	
+	process_pages(options.pages_to_process,
+	              namespaces,
+	              options.input_file,
+	              options.output_file);
+	              
 	return 0;
 }

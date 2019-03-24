@@ -78,7 +78,8 @@ static inline bool template_name_matches(const str_slice_t template_to_find,
 	                  template_to_find.len) == 0;
 }
 
-static str_slice_t find_template (const str_slice_t possible_template,
+static str_slice_t find_template (FILE * output_file,
+                                  const str_slice_t possible_template,
                                   const str_arr_t * template_to_find,
                                   bool * found) {
 	const char * p = possible_template.str + STATIC_LEN("{{");
@@ -93,7 +94,8 @@ static str_slice_t find_template (const str_slice_t possible_template,
 			str_slice_t subslice;
 			str_slice_init(&subslice, p, end - p);
 			str_slice_t inner_template
-			    = find_template(subslice,
+			    = find_template(output_file,
+			                    subslice,
 			                    template_to_find,
 			                    found);
 			                    
@@ -114,7 +116,7 @@ static str_slice_t find_template (const str_slice_t possible_template,
 		
 		if (template_name_matches(template_name, *template_to_find)) {
 			*found = true;
-			printf("%.*s\n", (int) template.len, template.str);
+			fprintf(output_file, "%.*s\n", (int) template.len, template.str);
 		}
 	} else {
 		str_slice_init(&template, NULL, (size_t) -1);
@@ -126,14 +128,15 @@ static str_slice_t find_template (const str_slice_t possible_template,
 	return template;
 }
 
-static inline bool print_templates (const char * const title,
+static inline bool print_templates (FILE * output_file,
+                                    const char * const title,
                                     const buffer_t * const str,
                                     const str_arr_t * template_to_find) {
 	const char * p = buffer_string(str);
 	const char * const end = p + buffer_length(str);
 	bool found_template = false;
 	
-	printf("\1%s\n", title);
+	fprintf(output_file, "\1%s\n", title);
 	
 	while (p < end) {
 		const char * const open_template = strstr(p, "{{");
@@ -143,7 +146,8 @@ static inline bool print_templates (const char * const title,
 			
 		str_slice_t possible_template;
 		str_slice_init(&possible_template, open_template, end - open_template);
-		str_slice_t template = find_template(possible_template,
+		str_slice_t template = find_template(output_file,
+		                                     possible_template,
 		                                     template_to_find,
 		                                     &found_template);
 		                                     
@@ -164,7 +168,8 @@ static bool handle_page (parse_info * info) {
 	        || CONTAINS_STR(buffer_string(buffer), data->filter))
 	        && CONTAINS_STR(buffer_string(buffer), data->to_find.str)) {
 		bool found_template =
-		    print_templates(page->title,
+		    print_templates(data->output_file,
+		                    page->title,
 		                    buffer,
 		                    (str_arr_t *) &data->template_name);
 		                    
@@ -295,7 +300,7 @@ int main (int argc, char * * argv) {
 	
 	parse_arguments(argc, argv, &data);
 	
-	do_parsing(stdin, handle_page, namespaces, &data);
+	do_parsing(data.input_file, handle_page, namespaces, &data);
 	
 	EPRINTF("found instances of 'Template:%.*s' on %u pages\n",
 	        (int) data.template_name.len,
