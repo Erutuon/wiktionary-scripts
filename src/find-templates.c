@@ -119,9 +119,16 @@ static str_slice_t find_template (FILE * output_file,
 			fprintf(output_file, "%.*s\n", (int) template.len, template.str);
 		}
 	} else {
+		int len = MIN(possible_template.len, 64);
+		    
+		// Make sure printed string is valid UTF-8.
+		while ((size_t) len < possible_template.len
+		&& (unsigned) possible_template.str[len] > 127)
+			++len;
+			
 		str_slice_init(&template, NULL, (size_t) -1);
 		EPRINTF("invalid template at '%.*s'\n",
-		        (int) MIN(possible_template.len, 64),
+		        len,
 		        possible_template.str);
 	}
 	
@@ -279,7 +286,7 @@ void parse_arguments (int argc, char * * argv, additional_parse_data * data) {
 	else if (data->output_file == NULL)
 		CRASH_WITH_MSG("output file required\n");
 	else if (data->max_matches == 0)
-		CRASH_WITH_MSG("--match-count required\n");
+		CRASH_WITH_MSG("--page-count required\n");
 	else if (strlen(data->template_name.str) == 0)
 		CRASH_WITH_MSG("--template-name required\n");
 		
