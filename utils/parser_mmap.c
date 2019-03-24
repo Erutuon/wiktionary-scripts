@@ -316,7 +316,7 @@ static inline void print_parser_info(XML_Parser parser,
 	        byte_count_buf, ((double) end_time - start_time) / CLOCKS_PER_SEC);
 }
 
-void do_parsing (const char * const XML_file,
+void parse_Wiktionary_page_dump (const char * const XML_file,
                  page_callback handle_page,
 				 Wiktionary_namespace_t * namespaces,
                  void * data) {

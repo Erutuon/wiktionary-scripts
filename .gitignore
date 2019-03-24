@@ -1,5 +1,5 @@
 # alternative file versions
-*_mmap
+*_mmap*
 
 # exclude pages.xml and such
 *.xml

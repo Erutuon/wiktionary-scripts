@@ -307,7 +307,7 @@ int main (int argc, char * * argv) {
 	
 	parse_arguments(argc, argv, &data);
 	
-	do_parsing(data.input_file, handle_page, namespaces, &data);
+	parse_Wiktionary_page_dump(data.input_file, handle_page, namespaces, &data);
 	
 	EPRINTF("found instances of 'Template:%.*s' on %u pages\n",
 	        (int) data.template_name.len,

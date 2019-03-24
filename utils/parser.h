@@ -142,7 +142,7 @@ typedef struct _parse_info {
 	page_info page;
 } parse_info;
 
-void do_parsing (FILE * XML_file,
+void parse_Wiktionary_page_dump (FILE * XML_file,
                  page_callback handle_page,
 				 Wiktionary_namespace_t * namespaces,
                  void * data);

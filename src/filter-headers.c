@@ -260,7 +260,7 @@ static inline void process_pages (page_count_t pages_to_process,
 	data.pages_to_process = pages_to_process;
 	data.headers_to_ignore = headers_to_ignore;
 	
-	do_parsing(input_file, handle_page, namespaces, &data);
+	parse_Wiktionary_page_dump(input_file, handle_page, namespaces, &data);
 	
 	size_t title_count = hattrie_size(headers_by_title);
 	EPRINTF("gathered lists of headers for %zu page%s\n",
