@@ -26,9 +26,3 @@ find-templates: $(SHARED_OBJS) src/find-templates.o
 
 utils/commander.o: $(COMMANDER_DIR)/commander.c
 	gcc $(CFLAGS) -c $(COMMANDER_DIR)/commander.c -o $@
-
-src/%.o: src/%.c
-	gcc $(CFLAGS) -c $< -o $@
-
-utils/%.o: utils/%.c
-	gcc $(CFLAGS) -c $< -o $@
