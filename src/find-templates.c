@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <limits.h>
+#include <ctype.h>
 
 #include "utils/buffer.h"
 #include "utils/parser.h"
@@ -54,6 +55,20 @@ static inline void str_slice_init(str_slice_t * slice, const char * str, const s
 	slice->len = len;
 }
 
+static inline str_slice_t trim (const str_slice_t slice) {
+	const char * start = slice.str, * end = STR_SLICE_END(slice);
+	str_slice_t trimmed;
+	
+	while (start < STR_SLICE_END(slice) && isspace(*start))
+		++start;
+		
+	while (end - 1 > slice.str && isspace(end[-1]))
+		--end;
+	
+	str_slice_init(&trimmed, start, end - start);
+	return trimmed;
+}
+
 // Will only work if template name doesn't contain templates (which should hold
 // true in mainspace) and template is well-formed.
 static inline str_slice_t get_template_name (const str_slice_t slice) {
@@ -63,10 +78,10 @@ static inline str_slice_t get_template_name (const str_slice_t slice) {
 	str_slice_t template_name;
 	
 	while (p < end && !(p[0] == '|' || (p[0] == '}' && p[1] == '}')))
-		p++;
-		
+		++p;
+	
 	str_slice_init(&template_name, name_start, p - name_start);
-	return template_name;
+	return trim(template_name);
 }
 
 static inline bool template_name_matches(const str_slice_t template_to_find,
