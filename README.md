@@ -8,4 +8,6 @@ These are programs for processing the English Wiktionary dump.
 
 `find-templates` generates a list of all instances of a given template with the titles of the pages on which they were found.
 
-Both require [Expat](https://github.com/libexpat/libexpat), [Hat-Trie](https://github.com/dcjones/hat-trie), and [commander](https://github.com/clibs/commander).
+`find-multiple-templates` is like `find-templates`, only it lists multiple templates.
+
+All of them require [Expat](https://github.com/libexpat/libexpat) and [commander](https://github.com/clibs/commander), and `all-headers`, `filter-headers`, and `find-multiple-templates` also require [Hat-Trie](https://github.com/dcjones/hat-trie).
