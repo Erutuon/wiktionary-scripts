@@ -17,12 +17,16 @@ PAGES_XML = pages.xml
 
 # all-headers, filter-headers
 %-headers: $(SHARED_OBJS) src/$$@.o utils/get_header.o
-	gcc $(CFLAGS) $(SHARED_OBJS) src/$@.o utils/get_header.o \
+	$(CC) $(CFLAGS) $(SHARED_OBJS) src/$@.o utils/get_header.o \
 		-o bin/$@ $(LIBS) -lhat-trie
 
-find-templates: $(SHARED_OBJS) src/find-templates.o
-	gcc $(CFLAGS) $(SHARED_OBJS) src/$@.o \
+find-templates: $(SHARED_OBJS) src/$$@.o
+	$(CC) $(CFLAGS) $(SHARED_OBJS) src/$@.o \
 		-o bin/$@ $(LIBS)
 
+find-multiple-templates: $(SHARED_OBJS) src/$$@.o
+	$(CC) $(CFLAGS) $(SHARED_OBJS) src/$@.o \
+		-o bin/$@ $(LIBS) -lhat-trie
+
 utils/commander.o: $(COMMANDER_DIR)/commander.c
-	gcc $(CFLAGS) -c $(COMMANDER_DIR)/commander.c -o $@
+	$(CC) $(CFLAGS) -c $(COMMANDER_DIR)/commander.c -o $@
