@@ -34,6 +34,10 @@
 // Assign each output file a number, and when processing each page,
 // use bits to track whether the title of the page currently being processed
 // has been printed to the file yet.
+// The index of each file's bit is kept in the highest 16 bits of the pointer,
+// and is set with STORE_IN_PTR, gotten with GET_STORED_VALUE, and removed
+// by GET_PTR_VAL (so that the pointer can be safely dereferenced).
+// https://stackoverflow.com/questions/16198700/using-the-extra-16-bits-in-64-bit-pointers
 typedef unsigned int output_file_mask_t;
 static uint16_t output_file_bit_index = 0;
 #define MAX_OUTPUT_FILES (sizeof (output_file_mask_t) * CHAR_BITS)
