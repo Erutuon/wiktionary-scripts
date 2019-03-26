@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <string.h>
 #include <limits.h>
 #include <ctype.h>
@@ -14,6 +15,28 @@
 #define STATIC_LEN(str) (sizeof (str) - 1)
 #define CONTAINS_STR(a, b) (strstr((a), (b)) != NULL)
 #define STR_SLICE_END(slice) ((slice).str + (slice).len)
+
+#define SIG_PTR_BITS 48
+#define CHAR_BITS 8
+#define PTR_BITS (sizeof (void *) * CHAR_BITS)
+#define SIG_PTR_BITS 48
+#define MASK_N(n) ((1ULL << (n)) - 1)
+#define MASK_LEFT_N(n) (MASK_N(n) << (PTR_BITS - (n)))
+#define SIG_PTR_VAL(ptr) ((uintptr_t) (ptr) & MASK_N(SIG_PTR_BITS))
+#define SIGN_EXTEND(ptr, n) (((intptr_t) ptr << n) >> n)
+#define STORE_IN_PTR(ptr, val) ((void *) (SIG_PTR_VAL(ptr) \
+                               | ((uintptr_t) val << SIG_PTR_BITS)))
+#define GET_STORED_VALUE(ptr) ((ptr & MASK_LEFT_N(PTR_BITS - SIG_PTR_BITS)) >> SIG_PTR_BITS)
+#define GET_PTR_VAL(ptr) ((void *) SIGN_EXTEND(ptr, 16))
+#define SET_BIT_AT(val, n) ((val) | (1ULL << n))
+#define GET_BIT_AT(val, n) ((val) & (1ULL << n))
+
+// Assign each output file a number, and when processing each page,
+// use bits to track whether the title of the page currently being processed
+// has been printed to the file yet.
+typedef unsigned int output_file_mask_t;
+static uint16_t output_file_bit_index = 0;
+#define MAX_OUTPUT_FILES (sizeof (output_file_mask_t) * CHAR_BITS)
 
 #define CHECK_FILE(file) \
 	if ((file) == NULL) \
@@ -81,17 +104,11 @@ static inline str_slice_t get_template_name (const str_slice_t slice) {
 	return trim(template_name);
 }
 
-static inline bool template_name_matches(const str_slice_t template_name,
-        hattrie_t * template_names) {
-	return hattrie_tryget(template_names,
-	                      template_name.str,
-	                      template_name.len) != NULL;
-}
-
 static str_slice_t find_template (const char * const title,
                                   const str_slice_t possible_template,
                                   hattrie_t * template_names,
-                                  bool * found) {
+                                  bool * found,
+                                  output_file_mask_t * output_file_mask) {
 	const char * p = possible_template.str + STATIC_LEN("{{");
 	const char * const end = STR_SLICE_END(possible_template);
 	str_slice_t template, template_name;
@@ -105,7 +122,8 @@ static str_slice_t find_template (const char * const title,
 			str_slice_t inner_template = find_template(title,
 			                             subslice,
 			                             template_names,
-			                             found);
+			                             found,
+			                             output_file_mask);
 			                             
 			if (inner_template.str == NULL)
 				break;
@@ -127,13 +145,15 @@ static str_slice_t find_template (const char * const title,
 		                       template_name.len);
 		                       
 		if (entry != NULL) {
-			FILE * output_file = (FILE *) *entry;
+			FILE * output_file = GET_PTR_VAL(*entry);
+			int bit_pos = GET_STORED_VALUE(*entry);
 			
 			*found = true;
 			
-			// TODO: How to only print the title when a template from
-			// this title has not already been written to the current file?
-			fprintf(output_file, "\1%s\n", title);
+			if (GET_BIT_AT(*output_file_mask, bit_pos) == 0) {
+				fprintf(output_file, "\1%s\n", title);
+				*output_file_mask = SET_BIT_AT(*output_file_mask, bit_pos);
+			}
 			
 			fprintf(output_file, "%.*s\n", (int) template.len, template.str);
 		}
@@ -160,6 +180,7 @@ static inline bool print_templates (const char * const title,
 	const char * p = buffer_string(str);
 	const char * const end = p + buffer_length(str);
 	bool found_template = false;
+	output_file_mask_t output_file_mask = 0;
 	
 	while (p < end) {
 		const char * const open_template = strstr(p, "{{");
@@ -172,7 +193,8 @@ static inline bool print_templates (const char * const title,
 		str_slice_t template = find_template(title,
 		                                     possible_template,
 		                                     template_names,
-		                                     &found_template);
+		                                     &found_template,
+		                                     &output_file_mask);
 		                                     
 		p = (template.str != NULL)
 		    ? STR_SLICE_END(template)
@@ -204,11 +226,19 @@ static inline void get_input_file (command_t * commands) {
 	data->input_file = file;
 }
 
+static inline void increment_output_file_bit_index() {
+	if (output_file_bit_index >= MAX_OUTPUT_FILES)
+		CRASH_WITH_MSG("too many output files");
+	else
+		++output_file_bit_index;
+}
+
 static inline void get_default_output_file (command_t * commands) {
 	additional_parse_data * data = commands->data;
 	FILE * file = fopen(commands->arg, "wb");
 	CHECK_FILE(file);
-	data->default_output_file = file;
+	data->default_output_file = STORE_IN_PTR(file, output_file_bit_index);
+	increment_output_file_bit_index();
 }
 
 static inline void add_template_names_to_trie (FILE * template_names_file,
@@ -265,6 +295,7 @@ static inline void add_template_names_to_trie (FILE * template_names_file,
 				else {
 					output_file = fopen(path, "wb");
 					CHECK_FILE(output_file);
+					output_file = STORE_IN_PTR(output_file, output_file_bit_index);
 					filepath_entry = hattrie_get(filepath_trie,
 					                             path,
 					                             strlen(path));
@@ -272,6 +303,7 @@ static inline void add_template_names_to_trie (FILE * template_names_file,
 				}
 				
 				*entry = (value_t) output_file;
+				increment_output_file_bit_index();
 			} else // File added later by add_default_output_file.
 				*entry = (value_t) NULL;
 		}
@@ -459,7 +491,7 @@ static inline void close_files (FILE * input_file,
                                 hattrie_t * file_paths) {
 	if ((input_file != NULL && fclose(input_file) == EOF)
 	        || (default_output_file != NULL
-	            && fclose(default_output_file) == EOF))
+	            && fclose(GET_PTR_VAL(default_output_file)) == EOF))
 		CRASH_WITH_MSG("failed to close file");
 		
 	hattrie_iter_t * iter;
@@ -468,7 +500,7 @@ static inline void close_files (FILE * input_file,
 	        !hattrie_iter_finished(iter);
 	        hattrie_iter_next(iter)) {
 		value_t * val = hattrie_iter_val(iter);
-		FILE * file = (FILE *) *val;
+		FILE * file = (FILE *) GET_PTR_VAL(*val);
 		
 		if (fclose(file) == EOF)
 			CRASH_WITH_MSG("failed to close file");
