@@ -9,8 +9,6 @@
 #include "utils/parser.h"
 #include "commander.h"
 
-#define MAX_PAGES 10
-
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define STATIC_LEN(str) (sizeof (str) - 1)
 #define CONTAINS_STR(a, b) (strstr((a), (b)) != NULL)

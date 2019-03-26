@@ -10,8 +10,6 @@
 #include "utils/parser.h"
 #include "commander.h"
 
-#define MAX_PAGES 10
-
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define STATIC_LEN(str) (sizeof (str) - 1)
 #define CONTAINS_STR(a, b) (strstr((a), (b)) != NULL)
@@ -36,17 +34,17 @@ typedef struct {
 typedef struct {
 	unsigned int max_matches;
 	unsigned int match_count;
-	FILE * input_file, * output_file;
+	FILE * input_file, * default_output_file;
 	char * filter;
-	hattrie_t * template_names;
+	hattrie_t * template_names; // template name to FILE pointer
+	hattrie_t * file_paths; // output file path to FILE pointer
 } additional_parse_data;
 
-static inline void str_slice_init(str_slice_t * slice, const char * str, const size_t len) {
-	if (slice == NULL)
-		CRASH_WITH_MSG("!!!");
-		
-	slice->str = str;
-	slice->len = len;
+static inline str_slice_t str_slice_init(const char * str, const size_t len) {
+	str_slice_t slice;
+	slice.str = str;
+	slice.len = len;
+	return slice;
 }
 
 static inline str_slice_t trim (const str_slice_t slice) {
@@ -61,10 +59,10 @@ static inline str_slice_t trim (const str_slice_t slice) {
 		
 	if (start != slice.str || end != STR_SLICE_END(slice))
 		EPRINTF("trimmed string '%.*s'\n",
-				(int) slice.len,
-				slice.str);
-	
-	str_slice_init(&trimmed, start, end - start);
+		        (int) slice.len,
+		        slice.str);
+		        
+	trimmed = str_slice_init(start, end - start);
 	return trimmed;
 }
 
@@ -78,21 +76,20 @@ static inline str_slice_t get_template_name (const str_slice_t slice) {
 	
 	while (p < end && !(p[0] == '|' || (p[0] == '}' && p[1] == '}')))
 		p++;
-	
-	str_slice_init(&template_name, name_start, p - name_start);
+		
+	template_name = str_slice_init(name_start, p - name_start);
 	return trim(template_name);
 }
 
 static inline bool template_name_matches(const str_slice_t template_name,
         hattrie_t * template_names) {
 	return hattrie_tryget(template_names,
-						template_name.str,
-						template_name.len) != NULL;
+	                      template_name.str,
+	                      template_name.len) != NULL;
 }
 
-static str_slice_t find_template (FILE * output_file,
-                                  const char * const title,
-								  const str_slice_t possible_template,
+static str_slice_t find_template (const char * const title,
+                                  const str_slice_t possible_template,
                                   hattrie_t * template_names,
                                   bool * found) {
 	const char * p = possible_template.str + STATIC_LEN("{{");
@@ -104,15 +101,12 @@ static str_slice_t find_template (FILE * output_file,
 	
 	while (p <= end - STATIC_LEN("{{")) {
 		if (p[0] == '{' && p[1] == '{') {
-			str_slice_t subslice;
-			str_slice_init(&subslice, p, end - p);
-			str_slice_t inner_template
-			    = find_template(output_file,
-			                    title,
-								subslice,
-			                    template_names,
-			                    found);
-			                    
+			str_slice_t subslice = str_slice_init(p, end - p);
+			str_slice_t inner_template = find_template(title,
+			                             subslice,
+			                             template_names,
+			                             found);
+			                             
 			if (inner_template.str == NULL)
 				break;
 				
@@ -126,13 +120,21 @@ static str_slice_t find_template (FILE * output_file,
 	}
 	
 	if (closed) {
-		str_slice_init(&template, possible_template.str, p - possible_template.str);
-		
-		if (template_name_matches(template_name, template_names)) {
-			if (!*found)
-				fprintf(output_file, "\1%s\n", title);
+		value_t * entry;
+		template = str_slice_init(possible_template.str, p - possible_template.str);
+		entry = hattrie_tryget(template_names,
+		                       template_name.str,
+		                       template_name.len);
+		                       
+		if (entry != NULL) {
+			FILE * output_file = (FILE *) *entry;
 			
 			*found = true;
+			
+			// TODO: How to only print the title when a template from
+			// this title has not already been written to the current file?
+			fprintf(output_file, "\1%s\n", title);
+			
 			fprintf(output_file, "%.*s\n", (int) template.len, template.str);
 		}
 	} else {
@@ -143,7 +145,7 @@ static str_slice_t find_template (FILE * output_file,
 		        && (unsigned) possible_template.str[len] > 127)
 			++len;
 			
-		str_slice_init(&template, NULL, (size_t) -1);
+		template = str_slice_init(NULL, (size_t) -1);
 		EPRINTF("invalid template at '%.*s'\n",
 		        len,
 		        possible_template.str);
@@ -152,8 +154,7 @@ static str_slice_t find_template (FILE * output_file,
 	return template;
 }
 
-static inline bool print_templates (FILE * output_file,
-                                    const char * const title,
+static inline bool print_templates (const char * const title,
                                     const buffer_t * const str,
                                     hattrie_t * template_names) {
 	const char * p = buffer_string(str);
@@ -166,11 +167,10 @@ static inline bool print_templates (FILE * output_file,
 		if (open_template == NULL)
 			break;
 			
-		str_slice_t possible_template;
-		str_slice_init(&possible_template, open_template, end - open_template);
-		str_slice_t template = find_template(output_file,
-		                                     title,
-											 possible_template,
+		str_slice_t possible_template = str_slice_init(open_template,
+		                                end - open_template);
+		str_slice_t template = find_template(title,
+		                                     possible_template,
 		                                     template_names,
 		                                     &found_template);
 		                                     
@@ -188,53 +188,92 @@ static bool handle_page (parse_info * info) {
 	additional_parse_data * data = info->additional_data;
 	
 	bool found_template =
-		print_templates(data->output_file,
-						page->title,
-						buffer,
-						data->template_names);
-						
+	    print_templates(page->title,
+	                    buffer,
+	                    data->template_names);
+	                    
 	if (found_template && ++data->match_count >= data->max_matches)
 		return false;
-	
+		
 	return true;
 }
 static inline void get_input_file (command_t * commands) {
 	additional_parse_data * data = commands->data;
-	FILE * input_file = fopen(commands->arg, "rb");
-	CHECK_FILE(input_file);
-	data->input_file = input_file;
+	FILE * file = fopen(commands->arg, "rb");
+	CHECK_FILE(file);
+	data->input_file = file;
 }
 
-static inline void get_output_file (command_t * commands) {
+static inline void get_default_output_file (command_t * commands) {
 	additional_parse_data * data = commands->data;
-	FILE * output_file = fopen(commands->arg, "wb");
-	CHECK_FILE(output_file);
-	data->output_file = output_file;
+	FILE * file = fopen(commands->arg, "wb");
+	CHECK_FILE(file);
+	data->default_output_file = file;
 }
 
 static inline void add_template_names_to_trie (FILE * template_names_file,
-											hattrie_t * trie) {
+        hattrie_t * template_trie,
+        hattrie_t * filepath_trie) {
 	char line[BUFSIZ];
 	int count = 0;
 	
 	while (fgets(line, BUFSIZ, template_names_file) != NULL) {
 		const char * tab = strchr(line, '\t');
 		size_t len = tab ? (size_t) (tab - line) : strlen(line);
+		str_slice_t template_name = str_slice_init(line, len);
+		value_t * entry;
 		++count;
-		while (&line[len - 1] > line && line[len - 1] == '\n')
-			--len;
-		if (&line[len] == line)
-			CRASH_WITH_MSG("file contains empty lines\n");
-		value_t * entry = hattrie_tryget(trie, line, len);
+		template_name = trim(template_name);
+		
+		if (template_name.len == 0)
+			CRASH_WITH_MSG("file contains an empty line\n");
+			
+		entry = hattrie_tryget(template_trie, line, len);
+		
 		if (entry != NULL)
 			CRASH_WITH_MSG("two entries for '%.*s' in file\n", (int) len, line);
 		else {
-			entry = hattrie_get(trie, line, len);
+			entry = hattrie_get(template_trie, line, len);
+			
 			if (tab != NULL) {
-				const char * filename = &tab[1];
-				CRASH_WITH_MSG("filename '%s' specified but can't handle it yet", filename);
-			} else
-				*entry = (value_t) NULL; // print to default output file
+				str_slice_t filename_slice = trim(str_slice_init(tab + 1, strlen(tab + 1)));
+				char filename[PATH_MAX + 1];
+				char path[PATH_MAX + 1];
+				
+				if (filename_slice.len < sizeof filename - 1)
+					strncpy(filename, filename_slice.str, sizeof filename - 1);
+				else
+					CRASH_WITH_MSG("filename '%.*s' too long",
+					               (int) filename_slice.len,
+					               filename_slice.str);
+					               
+				filename[filename_slice.len] = '\0';
+				
+				if (realpath(filename, path) != NULL) {
+					strncpy(path, filename, sizeof path - 1);
+					path[sizeof path - 1] = '\0'; // just in case
+				}
+				
+				value_t * filepath_entry = hattrie_tryget(filepath_trie,
+				                           path,
+				                           strlen(path));
+				FILE * output_file;
+				
+				if (filepath_entry != NULL)
+					output_file = (FILE *) *filepath_entry;
+					
+				else {
+					output_file = fopen(path, "wb");
+					CHECK_FILE(output_file);
+					filepath_entry = hattrie_get(filepath_trie,
+					                             path,
+					                             strlen(path));
+					*filepath_entry = (value_t) output_file;
+				}
+				
+				*entry = (value_t) output_file;
+			} else // File added later by add_default_output_file.
+				*entry = (value_t) NULL;
 		}
 	}
 	
@@ -244,27 +283,38 @@ static inline void add_template_names_to_trie (FILE * template_names_file,
 		CRASH_WITH_MSG("no template names found in file\n");
 }
 
+static inline hattrie_t * create_trie_if_needed(hattrie_t * trie) {
+	if (trie == NULL) {
+		trie = hattrie_create();
+		
+		if (trie == NULL)
+			CRASH_WITH_MSG("could not create trie\n");
+	}
+	
+	return trie;
+}
+
 static void get_templates_to_find (command_t * commands) {
 	additional_parse_data * data = commands->data;
 	size_t len = strlen(commands->arg);
 	
 	if (len == 0)
-		CRASH_WITH_MSG("expected non-empty string"); // ???
-	
+		CRASH_WITH_MSG("expected non-empty string\n"); // ???
+		
 	FILE * template_names_file = fopen(commands->arg, "rb");
 	CHECK_FILE(template_names_file);
 	
-	if (data->template_names == NULL) {
-		data->template_names = hattrie_create();
-		if (data->template_names == NULL)
-			CRASH_WITH_MSG("could not create trie\n");
-	}
+	data->template_names = create_trie_if_needed(data->template_names);
+	data->file_paths = create_trie_if_needed(data->file_paths);
 	
-	add_template_names_to_trie(template_names_file, data->template_names);
-	
+	add_template_names_to_trie(template_names_file,
+	                           data->template_names,
+	                           data->file_paths);
+	                           
 	EPRINTF("added template names from '%s'\n", commands->arg);
 	
-	fclose(template_names_file);
+	if (fclose(template_names_file) == EOF)
+		perror("could not close file"), exit(-1);
 }
 
 static void get_page_count (command_t * commands) {
@@ -298,18 +348,44 @@ static void get_filter (command_t * commands) {
 static void print_template_names (hattrie_t * template_names) {
 	hattrie_iter_t * iter;
 	int i = 0;
+	
 	for (iter = hattrie_iter_begin(template_names, true);
-			!hattrie_iter_finished(iter);
-			hattrie_iter_next(iter)) {
+	        !hattrie_iter_finished(iter);
+	        hattrie_iter_next(iter)) {
 		size_t len;
 		const char * key = hattrie_iter_key(iter, &len);
 		
 		if (i++ > 0)
 			fprintf(stderr, ", ");
-		
+			
 		fprintf(stderr, "'%s'", key);
 	}
+	
 	putc('\n', stderr);
+	hattrie_iter_free(iter);
+}
+
+static void add_default_output_file (hattrie_t * template_names,
+                                     FILE * default_output_file) {
+	hattrie_iter_t * iter;
+	
+	for (iter = hattrie_iter_begin(template_names, true);
+	        !hattrie_iter_finished(iter);
+	        hattrie_iter_next(iter)) {
+		value_t * val = hattrie_iter_val(iter);
+		
+		if ((void *) *val == NULL) {
+			if (default_output_file == NULL) {
+				size_t len;
+				const char * key = hattrie_iter_key(iter, &len);
+				CRASH_WITH_MSG("default output file required for template "
+				               "'%.*s', which has no output file specified\n",
+				               (int) len, key);
+			} else
+				*val = (value_t) default_output_file;
+		}
+	}
+	
 	hattrie_iter_free(iter);
 }
 
@@ -318,8 +394,11 @@ static void parse_arguments (int argc, char * * argv, additional_parse_data * da
 	
 	data->max_matches = 0;
 	data->match_count = 0;
+	data->input_file = NULL;
+	data->default_output_file = NULL;
 	data->filter = NULL;
 	data->template_names = NULL;
+	data->file_paths = NULL;
 	
 	command_init(&commands, argv[0], "0");
 	
@@ -331,7 +410,7 @@ static void parse_arguments (int argc, char * * argv, additional_parse_data * da
 	               
 	command_option(&commands, "-o", "--output <file>",
 	               "place output here",
-	               get_output_file);
+	               get_default_output_file);
 	               
 	command_option(&commands, "-t", "--template-names <file>",
 	               "file containing optional template names with optional tab and output filename",
@@ -351,26 +430,61 @@ static void parse_arguments (int argc, char * * argv, additional_parse_data * da
 	
 	if (data->input_file == NULL)
 		CRASH_WITH_MSG("input file required\n");
-	else if (data->output_file == NULL)
-		CRASH_WITH_MSG("output file required\n");
 	else if (data->max_matches == 0)
 		CRASH_WITH_MSG("--page-count required\n");
 	else if (data->template_names == NULL)
 		CRASH_WITH_MSG("--template-names required\n");
+		
+		
+		
+	add_default_output_file(data->template_names, data->default_output_file);
 	
 	size_t template_count = hattrie_size(data->template_names);
 	EPRINTF("searching for instances of %zu template%s on up to %u pages",
 	        template_count,
-			template_count == 1 ? "" : "s",
-			data->max_matches);
-	
+	        template_count == 1 ? "" : "s",
+	        data->max_matches);
+	        
 	if (data->filter != NULL)
 		EPRINTF(" containing '%s'", data->filter);
 		
 	EPRINTF("\n");
-	        
+	
 	EPRINTF("list of templates:\n");
 	print_template_names(data->template_names);
+}
+
+static inline void close_files (FILE * input_file,
+                                FILE * default_output_file,
+                                hattrie_t * file_paths) {
+	if ((input_file != NULL && fclose(input_file) == EOF)
+	        || (default_output_file != NULL
+	            && fclose(default_output_file) == EOF))
+		CRASH_WITH_MSG("failed to close file");
+		
+	hattrie_iter_t * iter;
+	
+	for (iter = hattrie_iter_begin(file_paths, false);
+	        !hattrie_iter_finished(iter);
+	        hattrie_iter_next(iter)) {
+		value_t * val = hattrie_iter_val(iter);
+		FILE * file = (FILE *) *val;
+		
+		if (fclose(file) == EOF)
+			CRASH_WITH_MSG("failed to close file");
+	}
+	
+	hattrie_iter_free(iter);
+}
+
+static inline void clean_up(additional_parse_data * data) {
+	close_files(data->input_file, data->default_output_file, data->file_paths);
+	
+	hattrie_free(data->file_paths);
+	hattrie_free(data->template_names);
+	
+	if (data->filter != NULL)
+		free(data->filter);
 }
 
 int main (int argc, char * * argv) {
@@ -382,9 +496,8 @@ int main (int argc, char * * argv) {
 	parse_Wiktionary_page_dump(data.input_file, handle_page, namespaces, &data);
 	
 	EPRINTF("found templates on %u pages\n", data.match_count);
-	        
-	if (data.filter != NULL)
-		free(data.filter);
+	
+	clean_up(&data);
 	
 	return 0;
 }
