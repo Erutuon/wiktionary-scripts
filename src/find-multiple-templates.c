@@ -55,21 +55,19 @@ typedef struct {
 	const char * str;
 } str_slice_t;
 
-// Type to cast `struct _template_name_t` and `struct _to_find_t`
-// in additional_parse_data to.
-typedef struct {
-	size_t len;
-	char str[1];
-} str_arr_t;
-
 typedef struct {
 	unsigned int max_matches;
 	unsigned int match_count;
-	FILE * input_file, * default_output_file;
 	char * filter;
 	hattrie_t * template_names; // template name to FILE pointer
-	hattrie_t * file_paths; // output file path to FILE pointer
 } additional_parse_data;
+
+typedef struct {
+	bool need_default_output_file;
+	hattrie_t * file_paths; // output file path to FILE pointer
+	FILE * input_file, * default_output_file;
+	additional_parse_data parse_data;
+} option_data;
 
 static inline str_slice_t str_slice_init(const char * str, const size_t len) {
 	str_slice_t slice;
@@ -228,10 +226,10 @@ static bool handle_page (parse_info * info) {
 	return !(found_template && ++data->match_count >= data->max_matches);
 }
 static inline void get_input_file (command_t * commands) {
-	additional_parse_data * data = commands->data;
+	option_data * options = commands->data;
 	FILE * file = fopen(commands->arg, "rb");
 	CHECK_FILE(file);
-	data->input_file = file;
+	options->input_file = file;
 }
 
 static inline uint16_t increment_output_file_bit_index() {
@@ -242,15 +240,16 @@ static inline uint16_t increment_output_file_bit_index() {
 }
 
 static inline void get_default_output_file (command_t * commands) {
-	additional_parse_data * data = commands->data;
+	option_data * options = commands->data;
 	FILE * file = fopen(commands->arg, "wb");
 	CHECK_FILE(file);
-	data->default_output_file = STORE_BIT_INDEX(file);
+	options->default_output_file = STORE_BIT_INDEX(file);
 }
 
 static inline void add_template_names_to_trie (FILE * template_names_file,
         hattrie_t * template_trie,
-        hattrie_t * filepath_trie) {
+        hattrie_t * filepath_trie,
+        bool * need_default_output_file) {
 	char line[BUFSIZ];
 	int count = 0;
 	
@@ -310,8 +309,10 @@ static inline void add_template_names_to_trie (FILE * template_names_file,
 				}
 				
 				*entry = (value_t) output_file;
-			} else // File added later by add_default_output_file.
+			} else { // File added later by add_default_output_file.
+				*need_default_output_file = true;
 				*entry = (value_t) NULL;
+			}
 		}
 	}
 	
@@ -333,7 +334,8 @@ static inline hattrie_t * create_trie_if_needed(hattrie_t * trie) {
 }
 
 static void get_templates_to_find (command_t * commands) {
-	additional_parse_data * data = commands->data;
+	option_data * options = commands->data;
+	additional_parse_data * data = &options->parse_data;
 	size_t len = strlen(commands->arg);
 	
 	if (len == 0)
@@ -343,11 +345,12 @@ static void get_templates_to_find (command_t * commands) {
 	CHECK_FILE(template_names_file);
 	
 	data->template_names = create_trie_if_needed(data->template_names);
-	data->file_paths = create_trie_if_needed(data->file_paths);
+	options->file_paths = create_trie_if_needed(options->file_paths);
 	
 	add_template_names_to_trie(template_names_file,
 	                           data->template_names,
-	                           data->file_paths);
+	                           options->file_paths,
+	                           &options->need_default_output_file);
 	                           
 	EPRINTF("added template names from '%s'\n", commands->arg);
 	
@@ -356,7 +359,8 @@ static void get_templates_to_find (command_t * commands) {
 }
 
 static void get_page_count (command_t * commands) {
-	additional_parse_data * data = commands->data;
+	option_data * options = commands->data;
+	additional_parse_data * data = &options->parse_data;
 	unsigned int count = 0;
 	
 	if (strcmp(commands->arg, "max") == 0)
@@ -369,7 +373,8 @@ static void get_page_count (command_t * commands) {
 
 
 static void get_filter (command_t * commands) {
-	additional_parse_data * data = commands->data;
+	option_data * options = commands->data;
+	additional_parse_data * data = &options->parse_data;
 	char * filter;
 	
 	if (strlen(commands->arg) == 0)
@@ -427,27 +432,20 @@ static void add_default_output_file (hattrie_t * template_names,
 	hattrie_iter_free(iter);
 }
 
-static void parse_arguments (int argc, char * * argv, additional_parse_data * data) {
+static inline void parse_arguments (int argc, char * * argv, option_data * options) {
 	command_t commands;
-	
-	data->max_matches = 0;
-	data->match_count = 0;
-	data->input_file = NULL;
-	data->default_output_file = NULL;
-	data->filter = NULL;
-	data->template_names = NULL;
-	data->file_paths = NULL;
+	additional_parse_data * data = &options->parse_data;
 	
 	command_init(&commands, argv[0], "0");
 	
-	commands.data = (void *) data;
+	commands.data = (void *) options;
 	
 	command_option(&commands, "-i", "--input <file>",
 	               "XML page dump file",
 	               get_input_file);
 	               
 	command_option(&commands, "-o", "--output <file>",
-	               "place output here",
+	               "place output here if template names file does not give a filename",
 	               get_default_output_file);
 	               
 	command_option(&commands, "-t", "--template-names <file>",
@@ -466,17 +464,19 @@ static void parse_arguments (int argc, char * * argv, additional_parse_data * da
 	
 	command_free(&commands);
 	
-	if (data->input_file == NULL)
-		CRASH_WITH_MSG("input file required\n");
+	if (options->input_file == NULL)
+		CRASH_WITH_MSG("--input required\n");
 	else if (data->max_matches == 0)
 		CRASH_WITH_MSG("--page-count required\n");
 	else if (data->template_names == NULL)
 		CRASH_WITH_MSG("--template-names required\n");
-		
-		
-		
-	add_default_output_file(data->template_names, data->default_output_file);
 	
+	if (options->need_default_output_file)
+		add_default_output_file(data->template_names, options->default_output_file);
+	else if (options->default_output_file != NULL)
+		EPRINTF("default output file provided, but not needed because every "
+		        "template has an output file specified\n");
+		        
 	size_t template_count = hattrie_size(data->template_names);
 	EPRINTF("searching for instances of %zu template%s on up to %u pages",
 	        template_count,
@@ -502,6 +502,9 @@ static inline void close_files (FILE * input_file,
 		
 	hattrie_iter_t * iter;
 	
+	if (hattrie_size(file_paths) == 0)
+		return;
+	
 	for (iter = hattrie_iter_begin(file_paths, false);
 	        !hattrie_iter_finished(iter);
 	        hattrie_iter_next(iter)) {
@@ -515,27 +518,36 @@ static inline void close_files (FILE * input_file,
 	hattrie_iter_free(iter);
 }
 
-static inline void clean_up(additional_parse_data * data) {
-	close_files(data->input_file, data->default_output_file, data->file_paths);
+static inline void clean_up(option_data * options) {
+	close_files(options->input_file,
+				options->default_output_file,
+				options->file_paths);
 	
-	hattrie_free(data->file_paths);
-	hattrie_free(data->template_names);
+	hattrie_free(options->file_paths);
+	options->file_paths = NULL;
+	hattrie_free(options->parse_data.template_names);
+	options->parse_data.template_names = NULL;
 	
-	if (data->filter != NULL)
-		free(data->filter);
+	if (options->parse_data.filter != NULL) {
+		free(options->parse_data.filter);
+		options->parse_data.filter = NULL;
+	}
 }
 
 int main (int argc, char * * argv) {
-	additional_parse_data data;
+	option_data options = {};
 	Wiktionary_namespace_t namespaces[] = { NAMESPACE_MAIN, NAMESPACE_NONE };
 	
-	parse_arguments(argc, argv, &data);
+	parse_arguments(argc, argv, &options);
 	
-	parse_Wiktionary_page_dump(data.input_file, handle_page, namespaces, &data);
+	parse_Wiktionary_page_dump(options.input_file,
+	                           handle_page,
+	                           namespaces,
+	                           &options.parse_data);
+	                           
+	EPRINTF("found templates on %u pages\n", options.parse_data.match_count);
 	
-	EPRINTF("found templates on %u pages\n", data.match_count);
-	
-	clean_up(&data);
+	clean_up(&options);
 	
 	return 0;
 }
