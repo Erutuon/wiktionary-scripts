@@ -167,7 +167,8 @@ static str_slice_t find_template (const char * const title,
 		
 		// Print up to the end of a series of non-ASCII or ASCII graphical characters.
 		while ((size_t) len < possible_template.len
-		        && ((unsigned) possible_template.str[len] > 127))
+		        && ((unsigned) possible_template.str[len] > 127
+		            || isgraph(possible_template.str[len])))
 			++len;
 			
 		template = str_slice_init(NULL, (size_t) -1);
