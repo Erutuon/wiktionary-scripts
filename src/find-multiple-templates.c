@@ -26,16 +26,16 @@
 #define SIGN_EXTEND(ptr, n) (((intptr_t) ptr << n) >> n)
 #define STORE_IN_PTR(ptr, val) ((void *) (SIG_PTR_VAL(ptr) \
                                | ((uintptr_t) val << SIG_PTR_BITS)))
-#define GET_STORED_VALUE(ptr) ((ptr & MASK_LEFT_N(PTR_BITS - SIG_PTR_BITS)) >> SIG_PTR_BITS)
+#define GET_STORED_VAL(ptr) ((ptr & MASK_LEFT_N(PTR_BITS - SIG_PTR_BITS)) >> SIG_PTR_BITS)
 #define GET_PTR_VAL(ptr) ((void *) SIGN_EXTEND(ptr, 16))
-#define SET_BIT_AT(val, n) ((val) | (1ULL << n))
-#define GET_BIT_AT(val, n) ((val) & (1ULL << n))
+#define SET_BIT_AT(val, n, bool) ((val) | ((unsigned long long) bool << n))
+#define GET_BIT_AT(val, n) (((val) & (1ULL << n)) >> n)
 
 // Assign each output file a number, and when processing each page,
 // use bits to track whether the title of the page currently being processed
 // has been printed to the file yet.
 // The index of each file's bit is kept in the highest 16 bits of the pointer,
-// and is set with STORE_IN_PTR, gotten with GET_STORED_VALUE, and removed
+// and is set with STORE_IN_PTR, gotten with GET_STORED_VAL, and removed
 // by GET_PTR_VAL (so that the pointer can be safely dereferenced).
 // https://stackoverflow.com/questions/16198700/using-the-extra-16-bits-in-64-bit-pointers
 typedef unsigned int output_file_mask_t;
@@ -76,7 +76,6 @@ static inline str_slice_t str_slice_init(const char * str, const size_t len) {
 
 static inline str_slice_t trim (const str_slice_t slice) {
 	const char * start = slice.str, * end = STR_SLICE_END(slice);
-	str_slice_t trimmed;
 	
 	while (start < STR_SLICE_END(slice) && isspace(*start))
 		++start;
@@ -84,13 +83,7 @@ static inline str_slice_t trim (const str_slice_t slice) {
 	while (end - 1 > slice.str && isspace(end[-1]))
 		--end;
 		
-	if (start != slice.str || end != STR_SLICE_END(slice))
-		EPRINTF("trimmed string '%.*s'\n",
-		        (int) slice.len,
-		        slice.str);
-		        
-	trimmed = str_slice_init(start, end - start);
-	return trimmed;
+	return str_slice_init(start, end - start);
 }
 
 // Will only work if template name doesn't contain templates (which should hold
@@ -101,7 +94,7 @@ static inline str_slice_t get_template_name (const str_slice_t slice) {
 	const char * const end = STR_SLICE_END(slice);
 	str_slice_t template_name;
 	
-	while (p < end && !(p[0] == '|' || (p[0] == '}' && p[1] == '}')))
+	while (p < end && !(p[0] == '|' || (p + 1 < end && p[0] == '}' && p[1] == '}')))
 		p++;
 		
 	template_name = str_slice_init(name_start, p - name_start);
@@ -120,7 +113,7 @@ static str_slice_t find_template (const char * const title,
 	
 	template_name = get_template_name(possible_template);
 	
-	while (p <= end - STATIC_LEN("{{")) {
+	while (p + STATIC_LEN("{{") <= end) {
 		if (p[0] == '{' && p[1] == '{') {
 			str_slice_t subslice = str_slice_init(p, end - p);
 			str_slice_t inner_template = find_template(title,
@@ -142,35 +135,44 @@ static str_slice_t find_template (const char * const title,
 	}
 	
 	if (closed) {
-		value_t * entry;
 		template = str_slice_init(possible_template.str, p - possible_template.str);
-		entry = hattrie_tryget(template_names,
-		                       template_name.str,
-		                       template_name.len);
-		                       
-		if (entry != NULL) {
-			FILE * output_file = GET_PTR_VAL(*entry);
-			int bit_pos = GET_STORED_VALUE(*entry);
-			
-			*found = true;
-			
-			if (GET_BIT_AT(*output_file_mask, bit_pos) == 0) {
-				fprintf(output_file, "\1%s\n", title);
-				*output_file_mask = SET_BIT_AT(*output_file_mask, bit_pos);
+		
+		if (template_name.len > 0) {
+			value_t * entry;
+			entry = hattrie_tryget(template_names,
+			                       template_name.str,
+			                       template_name.len);
+			                       
+			if (entry != NULL) {
+				FILE * output_file = GET_PTR_VAL(*entry);
+				int bit_pos = GET_STORED_VAL(*entry);
+				
+				*found = true;
+				
+				if (!GET_BIT_AT(*output_file_mask, bit_pos)) {
+					fprintf(output_file, "\1%s\n", title);
+					*output_file_mask = SET_BIT_AT(*output_file_mask, bit_pos, true);
+				}
+				
+				fprintf(output_file, "%.*s\n", (int) template.len, template.str);
 			}
-			
-			fprintf(output_file, "%.*s\n", (int) template.len, template.str);
+		} else {
+			EPRINTF("nameless template on page '%s' at '%.*s'\n",
+			        title,
+			        (int) template.len,
+			        template.str);
 		}
 	} else {
 		int len = MIN(possible_template.len, 64);
 		
-		// Make sure printed string is valid UTF-8.
+		// Print up to the end of a series of non-ASCII or ASCII graphical characters.
 		while ((size_t) len < possible_template.len
-		        && (unsigned) possible_template.str[len] > 127)
+		        && ((unsigned) possible_template.str[len] > 127))
 			++len;
 			
 		template = str_slice_init(NULL, (size_t) -1);
-		EPRINTF("invalid template at '%.*s'\n",
+		EPRINTF("unclosed template on page '%s' at '%.*s'\n",
+		        title,
 		        len,
 		        possible_template.str);
 	}
@@ -200,7 +202,7 @@ static inline bool print_templates (const char * const title,
 		                                     &found_template,
 		                                     &output_file_mask);
 		                                     
-		p = (template.str != NULL)
+		p = template.str != NULL
 		    ? STR_SLICE_END(template)
 		    : possible_template.str + STATIC_LEN("{{");
 	}
@@ -218,10 +220,7 @@ static bool handle_page (parse_info * info) {
 	                    buffer,
 	                    data->template_names);
 	                    
-	if (found_template && ++data->match_count >= data->max_matches)
-		return false;
-		
-	return true;
+	return !(found_template && ++data->match_count >= data->max_matches);
 }
 static inline void get_input_file (command_t * commands) {
 	additional_parse_data * data = commands->data;
@@ -381,11 +380,11 @@ static void get_filter (command_t * commands) {
 	data->filter = filter;
 }
 
-static void print_template_names (hattrie_t * template_names) {
+static void print_trie_keys (hattrie_t * trie) {
 	hattrie_iter_t * iter;
 	int i = 0;
 	
-	for (iter = hattrie_iter_begin(template_names, true);
+	for (iter = hattrie_iter_begin(trie, true);
 	        !hattrie_iter_finished(iter);
 	        hattrie_iter_next(iter)) {
 		size_t len;
@@ -487,7 +486,7 @@ static void parse_arguments (int argc, char * * argv, additional_parse_data * da
 	EPRINTF("\n");
 	
 	EPRINTF("list of templates:\n");
-	print_template_names(data->template_names);
+	print_trie_keys(data->template_names);
 }
 
 static inline void close_files (FILE * input_file,
