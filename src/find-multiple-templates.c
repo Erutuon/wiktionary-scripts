@@ -23,13 +23,17 @@
 #define MASK_N(n) ((1ULL << (n)) - 1)
 #define MASK_LEFT_N(n) (MASK_N(n) << (PTR_BITS - (n)))
 #define SIG_PTR_VAL(ptr) ((uintptr_t) (ptr) & MASK_N(SIG_PTR_BITS))
+#define SHIFT_VAL(val) ((uintptr_t) val << SIG_PTR_BITS))
+#define UNSHIFT_VAL(val) ((uintptr_t) val >> SIG_PTR_BITS)
 #define SIGN_EXTEND(ptr, n) (((intptr_t) ptr << n) >> n)
-#define STORE_IN_PTR(ptr, val) ((void *) (SIG_PTR_VAL(ptr) \
-                               | ((uintptr_t) val << SIG_PTR_BITS)))
-#define GET_STORED_VAL(ptr) ((ptr & MASK_LEFT_N(PTR_BITS - SIG_PTR_BITS)) >> SIG_PTR_BITS)
+#define STORE_IN_PTR(ptr, val) ((void *) (SIG_PTR_VAL(ptr) | SHIFT_VAL(val))
+#define GET_STORED_BITS(ptr) ((ptr) & MASK_LEFT_N(PTR_BITS - SIG_PTR_BITS))
+#define GET_STORED_VAL(ptr) (UNSHIFT_VAL(GET_STORED_BITS(ptr)))
 #define GET_PTR_VAL(ptr) ((void *) SIGN_EXTEND(ptr, 16))
-#define SET_BIT_AT(val, n, bool) ((val) | ((unsigned long long) bool << n))
-#define GET_BIT_AT(val, n) (((val) & (1ULL << n)) >> n)
+
+#define STORE_BIT_INDEX(ptr) STORE_IN_PTR(ptr, increment_output_file_bit_index())
+#define SET_BIT_AT(val, n, bool) ((val) | (((uintptr_t) bool) << n))
+#define GET_BIT_AT(val, n) (((val) & (((uintptr_t) 1) << n)) >> n)
 
 // Assign each output file a number, and when processing each page,
 // use bits to track whether the title of the page currently being processed
@@ -230,19 +234,18 @@ static inline void get_input_file (command_t * commands) {
 	data->input_file = file;
 }
 
-static inline void increment_output_file_bit_index() {
+static inline uint16_t increment_output_file_bit_index() {
 	if (output_file_bit_index >= MAX_OUTPUT_FILES)
 		CRASH_WITH_MSG("too many output files");
 	else
-		++output_file_bit_index;
+		return output_file_bit_index++;
 }
 
 static inline void get_default_output_file (command_t * commands) {
 	additional_parse_data * data = commands->data;
 	FILE * file = fopen(commands->arg, "wb");
 	CHECK_FILE(file);
-	data->default_output_file = STORE_IN_PTR(file, output_file_bit_index);
-	increment_output_file_bit_index();
+	data->default_output_file = STORE_BIT_INDEX(file);
 }
 
 static inline void add_template_names_to_trie (FILE * template_names_file,
@@ -299,7 +302,7 @@ static inline void add_template_names_to_trie (FILE * template_names_file,
 				else {
 					output_file = fopen(path, "wb");
 					CHECK_FILE(output_file);
-					output_file = STORE_IN_PTR(output_file, output_file_bit_index);
+					output_file = STORE_BIT_INDEX(output_file);
 					filepath_entry = hattrie_get(filepath_trie,
 					                             path,
 					                             strlen(path));
@@ -307,7 +310,6 @@ static inline void add_template_names_to_trie (FILE * template_names_file,
 				}
 				
 				*entry = (value_t) output_file;
-				increment_output_file_bit_index();
 			} else // File added later by add_default_output_file.
 				*entry = (value_t) NULL;
 		}
