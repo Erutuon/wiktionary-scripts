@@ -56,6 +56,7 @@ typedef struct {
 } str_slice_t;
 
 typedef struct {
+	bool verbose;
 	unsigned int max_matches;
 	unsigned int match_count;
 	char * filter;
@@ -107,7 +108,8 @@ static str_slice_t find_template (const char * const title,
                                   const str_slice_t possible_template,
                                   hattrie_t * template_names,
                                   bool * found,
-                                  output_file_mask_t * output_file_mask) {
+                                  output_file_mask_t * output_file_mask,
+                                  bool verbose) {
 	const char * p = possible_template.str + STATIC_LEN("{{");
 	const char * const end = STR_SLICE_END(possible_template);
 	str_slice_t template, template_name;
@@ -122,7 +124,8 @@ static str_slice_t find_template (const char * const title,
 			                             subslice,
 			                             template_names,
 			                             found,
-			                             output_file_mask);
+			                             output_file_mask,
+			                             verbose);
 			                             
 			if (inner_template.str == NULL)
 				break;
@@ -159,25 +162,29 @@ static str_slice_t find_template (const char * const title,
 				fprintf(output_file, "%.*s\n", (int) template.len, template.str);
 			}
 		} else {
-			EPRINTF("nameless template on page '%s' at '%.*s'\n",
-			        title,
-			        (int) template.len,
-			        template.str);
+			if (verbose)
+				EPRINTF("nameless template on page '%s' at '%.*s'\n",
+				        title,
+				        (int) template.len,
+				        template.str);
 		}
 	} else {
-		int len = MIN(possible_template.len, 64);
-		
-		// Print up to the end of a series of non-ASCII or ASCII graphical characters.
-		while ((size_t) len < possible_template.len
-		        && ((unsigned) possible_template.str[len] > 127
-		            || isgraph(possible_template.str[len])))
-			++len;
-			
 		template = str_slice_init(NULL, (size_t) -1);
-		EPRINTF("unclosed template on page '%s' at '%.*s'\n",
-		        title,
-		        len,
-		        possible_template.str);
+		
+		if (verbose) {
+			int len = MIN(possible_template.len, 64);
+			
+			// Print up to the end of a series of non-ASCII or ASCII graphical characters.
+			while ((size_t) len < possible_template.len
+			        && ((unsigned) possible_template.str[len] > 127
+			            || isgraph(possible_template.str[len])))
+				++len;
+				
+			EPRINTF("unclosed template on page '%s' at '%.*s'\n",
+			        title,
+			        len,
+			        possible_template.str);
+		}
 	}
 	
 	return template;
@@ -185,7 +192,8 @@ static str_slice_t find_template (const char * const title,
 
 static inline bool print_templates (const char * const title,
                                     const buffer_t * const str,
-                                    hattrie_t * template_names) {
+                                    hattrie_t * template_names,
+                                    bool verbose) {
 	const char * p = buffer_string(str);
 	const char * const end = p + buffer_length(str);
 	bool found_template = false;
@@ -203,7 +211,8 @@ static inline bool print_templates (const char * const title,
 		                                     possible_template,
 		                                     template_names,
 		                                     &found_template,
-		                                     &output_file_mask);
+		                                     &output_file_mask,
+		                                     verbose);
 		                                     
 		p = template.str != NULL
 		    ? STR_SLICE_END(template)
@@ -221,7 +230,8 @@ static bool handle_page (parse_info * info) {
 	bool found_template =
 	    print_templates(page->title,
 	                    buffer,
-	                    data->template_names);
+	                    data->template_names,
+	                    data->verbose);
 	                    
 	return !(found_template && ++data->match_count >= data->max_matches);
 }
@@ -388,6 +398,12 @@ static void get_filter (command_t * commands) {
 	data->filter = filter;
 }
 
+static void make_verbose (command_t * commands) {
+	option_data * options = commands->data;
+	additional_parse_data * data = &options->parse_data;
+	data->verbose = true;
+}
+
 static void print_trie_keys (hattrie_t * trie) {
 	hattrie_iter_t * iter;
 	int i = 0;
@@ -460,6 +476,10 @@ static inline void parse_arguments (int argc, char * * argv, option_data * optio
 	               "only process pages containing this text",
 	               get_filter);
 	               
+	command_option(&commands, "-v", "--verbose",
+	               "print all invalid templates to log",
+	               make_verbose);
+	               
 	command_parse(&commands, argc, argv);
 	
 	command_free(&commands);
@@ -470,7 +490,7 @@ static inline void parse_arguments (int argc, char * * argv, option_data * optio
 		CRASH_WITH_MSG("--page-count required\n");
 	else if (data->template_names == NULL)
 		CRASH_WITH_MSG("--template-names required\n");
-	
+		
 	if (options->need_default_output_file)
 		add_default_output_file(data->template_names, options->default_output_file);
 	else if (options->default_output_file != NULL)
@@ -504,7 +524,7 @@ static inline void close_files (FILE * input_file,
 	
 	if (hattrie_size(file_paths) == 0)
 		return;
-	
+		
 	for (iter = hattrie_iter_begin(file_paths, false);
 	        !hattrie_iter_finished(iter);
 	        hattrie_iter_next(iter)) {
@@ -520,9 +540,9 @@ static inline void close_files (FILE * input_file,
 
 static inline void clean_up(option_data * options) {
 	close_files(options->input_file,
-				options->default_output_file,
-				options->file_paths);
-	
+	            options->default_output_file,
+	            options->file_paths);
+	            
 	hattrie_free(options->file_paths);
 	options->file_paths = NULL;
 	hattrie_free(options->parse_data.template_names);
