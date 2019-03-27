@@ -42,29 +42,6 @@ typedef enum {
 	TAG_USERNAME
 } MediaWiki_page_tag_t;
 
-// https://www.mediawiki.org/wiki/Manual:Page_table#page_namespace
-// https://en.wiktionary.org/w/api.php?action=query&meta=siteinfo&siprop=namespaces
-/*
-// JavaScript code:
-const str = [];
-for (const [num, name] of Object.entries(mw.config.get('wgFormattedNamespaces'))) {
-	str.push("NAMESPACE_" + name.toUpperCase().replace(/ /g, "_") + " = " + num);
-}
-console.log(str.join(',\n'));
-
-// then Lua code
-local text = buffer:get_text()
-local max_len = 0
-for enum_value in text:gmatch 'NAMESPACE[_%u]+' do
-		if #enum_value > max_len then
-		max_len = #enum_value
-	end
-end
-buffer:gsub('(NAMESPACE[_%u]+)%s*=%s*(%-?%d+)',
-	function (enum, num)
-		return enum .. (" "):rep(max_len - #enum) .. (" =%5d"):format(tonumber(num))
-	end)
-*/
 typedef enum {
 	NAMESPACE_NONE                   =   -3, // arbitrary value
 	NAMESPACE_MEDIA                  =   -2,
