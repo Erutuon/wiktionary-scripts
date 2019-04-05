@@ -70,7 +70,8 @@ typedef struct {
 	additional_parse_data parse_data;
 } option_data;
 
-static inline str_slice_t str_slice_init(const char * str, const size_t len) {
+static inline str_slice_t str_slice_init (const char * str,
+        const size_t len) {
 	str_slice_t slice;
 	slice.str = str;
 	slice.len = len;
@@ -205,8 +206,9 @@ static inline bool print_templates (const char * const title,
 		if (open_template == NULL)
 			break;
 			
-		str_slice_t possible_template = str_slice_init(open_template,
-		                                end - open_template);
+		str_slice_t possible_template =
+		    str_slice_init(open_template,
+		                   end - open_template);
 		str_slice_t template = find_template(title,
 		                                     possible_template,
 		                                     template_names,
@@ -265,11 +267,10 @@ static inline void add_template_names_to_trie (FILE * template_names_file,
 	
 	while (fgets(line, BUFSIZ, template_names_file) != NULL) {
 		const char * tab = strchr(line, '\t');
-		size_t len = tab ? (size_t) (tab - line) : strlen(line);
-		str_slice_t template_name = str_slice_init(line, len);
+		size_t len = tab != NULL ? (size_t) (tab - line) : strlen(line);
+		str_slice_t template_name = trim(str_slice_init(line, len));
 		value_t * entry;
 		++count;
-		template_name = trim(template_name);
 		
 		if (template_name.len == 0)
 			CRASH_WITH_MSG("file contains an empty line\n");
@@ -277,52 +278,50 @@ static inline void add_template_names_to_trie (FILE * template_names_file,
 		entry = hattrie_tryget(template_trie, template_name.str, template_name.len);
 		
 		if (entry != NULL)
-			CRASH_WITH_MSG("two entries for '%.*s' in file\n", (int) template_name.len, template_name.str);
-		else {
-			entry = hattrie_get(template_trie, template_name.str, template_name.len);
+			CRASH_WITH_MSG("two entries for '%.*s' in template name files\n", (int) len, line);
 			
-			if (tab != NULL) {
-				str_slice_t filename_slice = trim(str_slice_init(tab + 1, strlen(tab + 1)));
-				char filename[PATH_MAX + 1];
-				char path[PATH_MAX + 1];
-				
-				if (filename_slice.len < sizeof filename - 1)
-					strncpy(filename, filename_slice.str, sizeof filename - 1);
-				else
-					CRASH_WITH_MSG("filename '%.*s' too long",
-					               (int) filename_slice.len,
-					               filename_slice.str);
-					               
-				filename[filename_slice.len] = '\0';
-				
-				if (realpath(filename, path) != NULL) {
-					strncpy(path, filename, sizeof path - 1);
-					path[sizeof path - 1] = '\0'; // just in case
-				}
-				
-				value_t * filepath_entry = hattrie_tryget(filepath_trie,
-				                           path,
-				                           strlen(path));
-				FILE * output_file;
-				
-				if (filepath_entry != NULL)
-					output_file = (FILE *) *filepath_entry;
-					
-				else {
-					output_file = fopen(path, "wb");
-					CHECK_FILE(output_file);
-					output_file = STORE_BIT_INDEX(output_file);
-					filepath_entry = hattrie_get(filepath_trie,
-					                             path,
-					                             strlen(path));
-					*filepath_entry = (value_t) output_file;
-				}
-				
-				*entry = (value_t) output_file;
-			} else { // File added later by add_default_output_file.
-				*need_default_output_file = true;
-				*entry = (value_t) NULL;
+		entry = hattrie_get(template_trie, template_name.str, template_name.len);
+		
+		if (tab != NULL) {
+			str_slice_t filename_slice = trim(str_slice_init(tab + 1, strlen(tab + 1)));
+			char filename[PATH_MAX + 1];
+			char path[PATH_MAX + 1];
+			
+			if (filename_slice.len < sizeof filename - 1)
+				strncpy(filename, filename_slice.str, sizeof filename - 1);
+			else
+				CRASH_WITH_MSG("filename '%.*s' too long",
+				               (int) filename_slice.len,
+				               filename_slice.str);
+				               
+			filename[filename_slice.len] = '\0';
+			
+			if (realpath(filename, path) != NULL) {
+				strncpy(path, filename, sizeof path - 1);
+				path[sizeof path - 1] = '\0'; // just in case
 			}
+			
+			value_t * filepath_entry = hattrie_tryget(filepath_trie,
+			                           path,
+			                           strlen(path));
+			FILE * output_file;
+			
+			if (filepath_entry != NULL)
+				output_file = (FILE *) *filepath_entry;
+			else {
+				output_file = fopen(path, "wb");
+				CHECK_FILE(output_file);
+				output_file = STORE_BIT_INDEX(output_file);
+				filepath_entry = hattrie_get(filepath_trie,
+				                             path,
+				                             strlen(path));
+				*filepath_entry = (value_t) output_file;
+			}
+			
+			*entry = (value_t) output_file;
+		} else { // File added later by add_default_output_file.
+			*need_default_output_file = true;
+			*entry = (value_t) NULL;
 		}
 	}
 	
