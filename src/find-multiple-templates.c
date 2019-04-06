@@ -9,12 +9,12 @@
 
 #include "utils/buffer.h"
 #include "utils/parser.h"
+#include "utils/string_slice.h"
 #include "commander.h"
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define STATIC_LEN(str) (sizeof (str) - 1)
 #define CONTAINS_STR(a, b) (strstr((a), (b)) != NULL)
-#define STR_SLICE_END(slice) ((slice).str + (slice).len)
 
 #define SIG_PTR_BITS 48
 #define CHAR_BITS 8
@@ -51,11 +51,6 @@ static uint16_t output_file_bit_index = 0;
 		perror("could not open file"), exit(-1)
 
 typedef struct {
-	size_t len;
-	const char * str;
-} str_slice_t;
-
-typedef struct {
 	bool verbose;
 	unsigned int max_matches;
 	unsigned int match_count;
@@ -70,39 +65,17 @@ typedef struct {
 	additional_parse_data parse_data;
 } option_data;
 
-static inline str_slice_t str_slice_init (const char * str,
-        const size_t len) {
-	str_slice_t slice;
-	slice.str = str;
-	slice.len = len;
-	return slice;
-}
-
-static inline str_slice_t trim (const str_slice_t slice) {
-	const char * start = slice.str, * end = STR_SLICE_END(slice);
-	
-	while (start < STR_SLICE_END(slice) && isspace(*start))
-		++start;
-		
-	while (end - 1 > slice.str && isspace(end[-1]))
-		--end;
-		
-	return str_slice_init(start, end - start);
-}
-
 // Will only work if template name doesn't contain templates (which should hold
 // true in mainspace) and template is well-formed.
 static inline str_slice_t get_template_name (const str_slice_t slice) {
 	const char * name_start = slice.str + STATIC_LEN("{{");
 	const char * p = name_start;
 	const char * const end = STR_SLICE_END(slice);
-	str_slice_t template_name;
 	
 	while (p < end && !(p[0] == '|' || (p + 1 < end && p[0] == '}' && p[1] == '}')))
 		p++;
 		
-	template_name = str_slice_init(name_start, p - name_start);
-	return trim(template_name);
+	return trim(str_slice_init(name_start, p - name_start));
 }
 
 static str_slice_t find_template (const char * const title,
