@@ -62,7 +62,7 @@ static inline str_slice_t trim (const str_slice_t slice) {
 		
 	while (end - 1 > slice.str && isspace(end[-1]))
 		--end;
-	
+		
 	str_slice_init(&trimmed, start, end - start);
 	return trimmed;
 }
@@ -77,7 +77,7 @@ static inline str_slice_t get_template_name (const str_slice_t slice) {
 	
 	while (p < end && !(p[0] == '|' || (p[0] == '}' && p[1] == '}')))
 		++p;
-	
+		
 	str_slice_init(&template_name, name_start, p - name_start);
 	return trim(template_name);
 }
@@ -133,10 +133,10 @@ static str_slice_t find_template (FILE * output_file,
 		}
 	} else {
 		int len = MIN(possible_template.len, 64);
-		    
+		
 		// Make sure printed string is valid UTF-8.
 		while ((size_t) len < possible_template.len
-		&& (unsigned) possible_template.str[len] > 127)
+		        && (unsigned) possible_template.str[len] > 127)
 			++len;
 			
 		str_slice_init(&template, NULL, (size_t) -1);
