@@ -15,12 +15,9 @@ PAGES_XML = pages.xml
 .SECONDARY:
 .SECONDEXPANSION:
 
-all-headers: $(SHARED_OBJS) src/$$@.o utils/get_header.o
+# all-headers, filter-headers
+%-headers: $(SHARED_OBJS) src/$$@.o utils/get_header.o
 	$(CC) $(CFLAGS) $(SHARED_OBJS) src/$@.o utils/get_header.o \
-		-o bin/$@ $(LIBS) -lhat-trie
-
-filter-headers: $(SHARED_OBJS) src/$$@.o utils/get_header.o utils/string_set.o
-	$(CC) $(CFLAGS) $(SHARED_OBJS) src/$@.o utils/get_header.o utils/string_set.o \
 		-o bin/$@ $(LIBS) -lhat-trie
 
 find-templates: $(SHARED_OBJS) src/$$@.o
