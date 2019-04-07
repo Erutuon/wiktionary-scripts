@@ -47,23 +47,6 @@ typedef struct {
 
 #define MAX_NAMESPACES 7
 
-#define MAKE_HATTRIE_FUNC(name) \
-	static inline value_t * hattrie_##name##_slice (hattrie_t * trie, \
-                                                    str_slice_t slice) { \
-		return hattrie_##name(trie, slice.str, slice.len); \
-	}
-
-MAKE_HATTRIE_FUNC(tryget)
-MAKE_HATTRIE_FUNC(get)
-
-#undef MAKE_HATTRIE_FUNC
-
-static inline str_slice_t hattrie_iter_key_slice (hattrie_iter_t * iter) {
-	size_t len;
-	const char * key = hattrie_iter_key(iter, &len);
-	return str_slice_init(key, len);
-}
-
 static inline str_slice_t get_line (str_slice_t slice) {
 	const char * p = slice.str;
 	
