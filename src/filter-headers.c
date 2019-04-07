@@ -1,13 +1,14 @@
 #include <stdio.h>
+#include <string.h>
 #include <stdbool.h>
 #include <inttypes.h>
-#include <hat-trie/hat-trie.h>
-#include <string.h> // strndup is needed
 #include <time.h>
+#include <hat-trie/hat-trie.h>
 
 #include "utils/buffer.h"
 #include "utils/parser.h"
 #include "utils/get_header.h"
+#include "utils/string_slice.h"
 #include "commander.h"
 
 #define HEADER_COUNTS_SIZE MAX_HEADER_LEVEL * sizeof (header_count_t)
@@ -46,19 +47,34 @@ typedef struct {
 
 #define MAX_NAMESPACES 7
 
-static inline size_t get_line_len (const char * const line_start,
-                                   const char * const end) {
-	const char * p = line_start;
+#define MAKE_HATTRIE_FUNC(name) \
+	static inline value_t * hattrie_##name##_slice (hattrie_t * trie, \
+                                                    str_slice_t slice) { \
+		return hattrie_##name(trie, slice.str, slice.len); \
+	}
+
+MAKE_HATTRIE_FUNC(tryget)
+MAKE_HATTRIE_FUNC(get)
+
+static inline str_slice_t hattrie_iter_key_slice (hattrie_iter_t * iter) {
+	size_t len;
+	const char * key = hattrie_iter_key(iter, &len);
+	return str_slice_init(key, len);
+}
+
+#undef MAKE_HATTRIE_FUNC
+
+static inline str_slice_t get_line (str_slice_t slice) {
+	const char * p = slice.str;
 	
-	while (p < end && *p != '\n')
+	while (p < STR_SLICE_END(slice) && *p != '\n')
 		++p;
 		
-	return p - line_start;
+	return str_slice_init(slice.str, p - slice.str);
 }
 
 static inline void * add_trie_mem (hattrie_t * trie,
-                                   const char * key,
-                                   size_t key_len,
+                                   str_slice_t key,
                                    size_t mem_size) {
 	value_t * storage;
 	void * mem = malloc(mem_size);
@@ -68,7 +84,7 @@ static inline void * add_trie_mem (hattrie_t * trie,
 		
 	memset(mem, '\0', mem_size);
 	
-	storage = hattrie_get(trie, key, key_len);
+	storage = hattrie_get_slice(trie, key);
 	*storage = (value_t) mem;
 	
 	return mem;
@@ -97,40 +113,41 @@ static inline void free_all_trie_mem (hattrie_t * trie) {
 	hattrie_iter_free(iter);
 }
 
+static inline bool str_slice_eq (const char * str, str_slice_t slice) {
+	return strlen(str) == slice.len
+	       && memcmp(str, slice.str, slice.len) == 0
+	       && str[slice.len] == '\0';
+}
+
 static inline void add_to_set (hattrie_t * headers_by_title,
                                const char * title,
-                               const char * str,
-                               size_t len) {
-	value_t * storage;
-	size_t title_len;
+                               str_slice_t header) {
+	str_slice_t title_slice = str_slice_init(title, strlen(title));
+	value_t * storage = hattrie_tryget_slice(headers_by_title, title_slice);
 	char * * headers;
-	
-	title_len = strlen(title);
-	storage = hattrie_tryget(headers_by_title, title, title_len);
 	
 	if (storage == NULL) {
 		headers = add_trie_mem(headers_by_title,
-		                       title,
-		                       title_len,
+		                       title_slice,
 		                       sizeof * headers * MAX_HEADERS_PER_PAGE);
-		                       
-		for (int i = 0; i < MAX_HEADERS_PER_PAGE; ++i)
-			headers[i] = NULL;
 	} else
 		headers = *(char * * *) storage;
 		
 	for (int i = 0; i < MAX_HEADERS_PER_PAGE; ++i) {
 		// Don't add header if it's already there.
 		if (headers[i] == NULL) {
-			char * header = strndup(str, len);
+			char * copy = malloc(header.len + 1);
 			
-			if (header == NULL)
+			if (copy == NULL)
 				MALLOC_FAIL;
 				
-			headers[i] = header;
+			memcpy(copy, header.str, header.len);
+			copy[header.len] = '\0';
+			
+			headers[i] = copy;
 			
 			return;
-		} else if (memcmp(str, headers[i], len) == 0 && headers[i][len] == '\0')
+		} else if (str_slice_eq(headers[i], header))
 			return;
 	}
 	
@@ -139,31 +156,37 @@ static inline void add_to_set (hattrie_t * headers_by_title,
 	        title);
 }
 
+// Skip line and one or more newlines.
+static inline str_slice_t skip_to_next_line (str_slice_t slice) {
+	const char * p = slice.str, * end = STR_SLICE_END(slice);
+	
+	while (p < end
+	        && *p != '\n')
+		++p;
+		
+	while (p < end && *p == '\n')
+		++p;
+		
+	return str_slice_init(p, end - p > 0 ? end - p : 0);
+}
+
 static inline void find_headers (hattrie_t * headers_by_title,
                                  hattrie_t * headers_to_ignore,
                                  const char * title,
-                                 const char * buffer,
-                                 size_t len) {
-	const char * str = buffer;
-	const char * const end = buffer + len;
-	
-	while (str < end) {
-		if (str[0] == '=') {
-			const char * line_start = str;
-			size_t line_len = get_line_len(line_start, end);
-			size_t header_len;
-			const char * header = get_header(line_start,
-			                                 line_len,
-			                                 &header_len,
-			                                 NULL);
-			                                 
-			if (header != NULL && header_len > 0
-			        && hattrie_tryget(headers_to_ignore, header, header_len) == NULL)
-				add_to_set(headers_by_title, title, header, header_len);
+                                 str_slice_t buffer) {
+	while (buffer.str < STR_SLICE_END(buffer)) {
+		str_slice_t line = get_line(buffer);
+		if (buffer.str[0] == '=') {
+			str_slice_t header = get_header(line, NULL);
+			
+			if (header.str != NULL && header.len > 0
+			        && hattrie_tryget_slice(headers_to_ignore, header) == NULL)
+				add_to_set(headers_by_title, title, header);
 				
-			str += line_len;
-		} else // Skip line (if any) and one newline.
-			while (str < end && *str++ != '\n');
+			buffer = str_slice_init(STR_SLICE_END(line),
+			                        STR_SLICE_END(buffer) - STR_SLICE_END(line));
+		} else
+			buffer = skip_to_next_line(buffer);
 	}
 }
 
@@ -186,8 +209,7 @@ static bool handle_page (parse_info * info) {
 	find_headers(headers_by_title,
 	             headers_to_ignore,
 	             info->page.title,
-	             buffer_string(buffer),
-	             buffer_length(buffer));
+	             str_slice_init(buffer_string(buffer), buffer_length(buffer)));
 	             
 	return true;
 }
@@ -204,18 +226,17 @@ static inline void print_header_counts (const header_count_t * const header_coun
 			if (!first)
 				putchar(';');
 				
-			printf("%hd:%d", header_level, count);
+			printf("%hhu:%d", header_level, count);
 			
 			first = false;
 		}
 	}
 }
 
-static inline void print_header_info (const char * const title,
-                                      const size_t title_len,
+static inline void print_header_info (const str_slice_t title,
                                       const char * * const headers,
                                       FILE * output_file) {
-	fprintf(output_file, "%.*s\t", (int) title_len, title);
+	fprintf(output_file, "%.*s\t", (int) title.len, title.str);
 	
 	for (int i = 0; i < MAX_HEADERS_PER_PAGE && headers[i] != NULL; ++i) {
 		if (i > 0)
@@ -234,15 +255,14 @@ static inline void print_headers_by_title (hattrie_t * trie,
 	for (iter = hattrie_iter_begin(trie, true);
 	        !hattrie_iter_finished(iter);
 	        hattrie_iter_next(iter)) {
-		size_t title_len;
-		const char * title = hattrie_iter_key(iter, &title_len);
+		str_slice_t title = hattrie_iter_key_slice(iter);
 		value_t * value = hattrie_iter_val(iter);
 		
 		if (value == NULL)
 			CRASH_WITH_MSG("!!!\n");
 			
 		const char * * headers = *(const char * * *) value;
-		print_header_info(title, title_len, headers, output_file);
+		print_header_info(title, headers, output_file);
 	}
 	
 	hattrie_iter_free(iter);
@@ -263,7 +283,7 @@ static inline void process_pages (page_count_t pages_to_process,
 	parse_Wiktionary_page_dump(input_file, handle_page, namespaces, &data);
 	
 	size_t title_count = hattrie_size(headers_by_title);
-	EPRINTF("gathered lists of headers for %zu page%s\n",
+	EPRINTF("gathered headers from %zu page%s\n",
 	        title_count, title_count == 1 ? "" : "s");
 	        
 	print_headers_by_title(headers_by_title, output_file);
@@ -300,17 +320,17 @@ static inline void add_headers (command_t * commands) {
 		if (newline == NULL && !feof(header_list)) {
 			char byte_count_buf[BYTE_COUNT_BUF_SIZE];
 			format_byte_count(sizeof buf, byte_count_buf, sizeof byte_count_buf);
-			CRASH_WITH_MSG("line %zu in '%s' is too long for buffer "
-			               "(%s)!\n",
+			CRASH_WITH_MSG("line %zu in '%s' is too long for buffer (%s)!\n",
 			               line_number, filename, byte_count_buf);
 		}
 		
-		size_t len = newline != NULL
-		             ? (size_t) (newline - buf)
-		             : sizeof buf - 1;
-		             
-		if (len > 0)
-			hattrie_get(headers, buf, len);
+		str_slice_t header = str_slice_init(buf,
+		                                    newline != NULL
+		                                    ? (size_t) (newline - buf)
+		                                    : sizeof buf - 1);
+		                                    
+		if (header.len > 0)
+			hattrie_get_slice(headers, header);
 	}
 	
 	if (ferror(header_list))
@@ -329,7 +349,7 @@ static inline void add_namespaces (command_t * commands) {
 	if (namespaces[0] != NAMESPACE_NONE)
 		CRASH_WITH_MSG("cannot supply namespaces twice");
 		
-	if (memcmp(arg, "all", 4) == 0) // Search all namespaces.
+	if (strcmp(arg, "all") == 0) // Search all namespaces.
 		return;
 		
 	if (sscanf(arg + total_characters_read,

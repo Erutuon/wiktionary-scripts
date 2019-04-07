@@ -1,44 +1,45 @@
 #include <ctype.h>
+
 #include "get_header.h"
+#include "string_slice.h"
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
-const char * get_header (const char * line_start,
-                         size_t line_len,
-                         size_t * header_len,
+str_slice_t get_header (str_slice_t line,
                          header_level_t * header_level) {
-	const char * p, * header_start, * header_end, * last_equals, * line_end;
+	const char * p, * header_last_char, * last_equals, * line_end;
 	int start_equals, end_equals, header_equals;
+	str_slice_t header = { 0, NULL };
 	
-	line_end = line_start + line_len;
-	p = line_start;
+	line_end = STR_SLICE_END(line);
+	p = line.str;
 	
 	while (p < line_end && *p == '=')
 		++p;
 		
-	header_start = p;
+	header.str = p;
 	
-	start_equals = p - line_start;
+	start_equals = p - line.str;
 	
 	p = line_end - 1;
 	
 	// Skip comments and ASCII whitespace.
-	while (p > line_start) {
+	while (p > line.str) {
 		if (isspace(p[0]))
 			--p;
-		else if ((size_t) (p - line_start) < sizeof "<!---->" - 1)
+		else if ((size_t) (p - line.str) < sizeof "<!---->" - 1)
 			break;
 		else if (p[-2] == '-' && p[-1] == '-' && p[0] == '>') {
 			const char * tmp = &p[-3];
 			
-			while (tmp > line_start) {
+			while (tmp > line.str) {
 				if (tmp[-3] == '<' && tmp[-2] == '!' && tmp[-1] == '-'
 				        && tmp[0] == '-') {
 					p = &tmp[-4];
 					break;
 				} else if ((tmp[-2] == '-' && tmp[-1] == '-' && tmp[0] == '>')
-				           || (size_t) (tmp - line_start) < sizeof "<!--" - 1)
-					return NULL;
+				           || (size_t) (tmp - line.str) < sizeof "<!--" - 1)
+					return NULL_SLICE;
 					
 				--tmp;
 			}
@@ -47,52 +48,50 @@ const char * get_header (const char * line_start,
 	}
 	
 	if (*p != '=')
-		return NULL;
+		return NULL_SLICE;
 		
 	last_equals = p;
 	
 	// Handle headers consisting only of equals signs.
-	if (line_start + start_equals == last_equals + 1) {
+	if (line.str + start_equals == last_equals + 1) {
 		int total_equals = start_equals;
 		start_equals = (total_equals - 1) / 2;
 		
 		// Two equals signs don't make a header.
 		if (total_equals <= 2)
-			return NULL;
-			
-		*header_len = start_equals % 2 == 0 ? 2 : 1;
+			return NULL_SLICE;
+		
 		if (header_level != NULL)
 			*header_level = start_equals;
-		return line_start + start_equals;
+			
+		header.len = start_equals % 2 == 0 ? 2 : 1;
+		
+		header.str = line.str + start_equals;
+		
+		return header;
 	}
 	
 	end_equals = 0;
 	
-	while (p > line_start && *p == '=')
+	while (p > line.str && *p == '=')
 		++end_equals, --p;
 		
-	header_end = p;
+	header_last_char = p;
 	
 	header_equals = start_equals;
 	
 	if (start_equals != end_equals) {
 		header_equals = MIN(start_equals, end_equals);
-		header_start -= start_equals - header_equals;
-		header_end += end_equals - header_equals;
+		header.str -= start_equals - header_equals;
+		header_last_char += end_equals - header_equals;
 	}
-	
-	while (header_start < line_end && isspace(*header_start))
-		++header_start;
-		
-	while (header_end > line_start && isspace(*header_end))
-		--header_end;
 		
 	if (header_level != NULL)
 		*header_level = header_equals;
 	
-	*header_len = header_start > header_end
+	header.len = header.str > header_last_char
 		? 0
-		: (size_t) (header_end - header_start + 1);
+		: (size_t) (header_last_char - header.str + 1);
 		
-	return header_start;
+	return trim(header);
 }

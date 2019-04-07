@@ -1,12 +1,15 @@
 #ifndef STRING_SLICE_H
 #define STRING_SLICE_H
 
+#include <ctype.h>
+
 typedef struct {
 	size_t len;
 	const char * str;
 } str_slice_t;
 
 #define STR_SLICE_END(slice) ((slice).str + (slice).len)
+#define NULL_SLICE ((str_slice_t) { 0, NULL })
 
 static inline str_slice_t str_slice_init (const char * str,
         const size_t len) {
