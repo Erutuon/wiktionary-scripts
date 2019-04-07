@@ -119,16 +119,7 @@ static inline void add_to_set (hattrie_t * headers_by_title,
 	for (int i = 0; i < MAX_HEADERS_PER_PAGE; ++i) {
 		// Don't add header if it's already there.
 		if (headers[i] == NULL) {
-			char * copy = malloc(header.len + 1);
-			
-			if (copy == NULL)
-				MALLOC_FAIL;
-				
-			memcpy(copy, header.str, header.len);
-			copy[header.len] = '\0';
-			
-			headers[i] = copy;
-			
+			headers[i] = str_slice_to_str(header);
 			return;
 		} else if (str_slice_eq(headers[i], header))
 			return;

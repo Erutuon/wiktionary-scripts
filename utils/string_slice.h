@@ -1,6 +1,8 @@
 #ifndef STRING_SLICE_H
 #define STRING_SLICE_H
 
+#include <stdio.h>
+#include <stdlib.h>
 #include <ctype.h>
 
 typedef struct {
@@ -29,6 +31,18 @@ static inline str_slice_t trim (const str_slice_t slice) {
 		--end;
 		
 	return str_slice_init(start, end - start);
+}
+
+static inline char * str_slice_to_str (str_slice_t slice) {
+	char * copy = malloc(slice.len + 1);
+	
+	if (copy == NULL)
+		fprintf(stderr, "could not allocate memory\n"), exit(EXIT_FAILURE);
+		
+	memcpy(copy, slice.str, slice.len);
+	copy[slice.len] = '\0';
+	
+	return copy;
 }
 
 #ifdef HATTRIE_HATTRIE_H
