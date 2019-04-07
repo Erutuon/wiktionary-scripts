@@ -52,8 +52,7 @@ static inline str_slice_t get_line (str_slice_t slice) {
 static inline str_slice_t skip_to_next_line (str_slice_t slice) {
 	const char * p = slice.str, * end = STR_SLICE_END(slice);
 	
-	while (p < end
-	        && *p != '\n')
+	while (p < end && *p != '\n')
 		++p;
 		
 	while (p < end && *p == '\n')
@@ -62,18 +61,18 @@ static inline str_slice_t skip_to_next_line (str_slice_t slice) {
 	return str_slice_init(p, end - p > 0 ? end - p : 0);
 }
 
-static inline void find_headers (hattrie_t * header_line_trie,
-                                 str_slice_t buffer) {
+static inline void add_header_lines (hattrie_t * header_line_trie,
+                                     str_slice_t buffer) {
 	const char * const end = STR_SLICE_END(buffer);
 	
 	while (buffer.str < end) {
-		if (buffer.str[0] == '=') {
-			str_slice_t line = get_line(buffer);
+		str_slice_t line = get_line(buffer);
+		
+		if (line.str[0] == '=')
 			increment_count(header_line_trie, line);
-			buffer = str_slice_init(STR_SLICE_END(line),
-			                        STR_SLICE_END(buffer) - STR_SLICE_END(line));
-		} else
-			buffer = skip_to_next_line(buffer);
+			
+		buffer.str = STR_SLICE_END(line), buffer.len -= line.len;
+		buffer = skip_to_next_line(buffer);
 	}
 }
 
@@ -91,10 +90,9 @@ static bool handle_page (parse_info * info) {
 	if (++page_count > data->pages_to_process)
 		return false;
 		
-	buffer_t * buffer = &info->page.content;
-	find_headers(header_line_trie,
-		str_slice_init(buffer_string(buffer), buffer_length(buffer)));
-	
+	add_header_lines(header_line_trie,
+	                 buffer_to_str_slice(&info->page.content));
+	                 
 	return true;
 }
 
@@ -160,7 +158,7 @@ static inline void filter_headers (hattrie_t * header_trie,
 		str_slice_t header_line, header;
 		header_level_t header_level;
 		header_line = hattrie_iter_key_slice(iter);
-		                               
+		
 		header = get_header(header_line,
 		                    &header_level);
 		                    

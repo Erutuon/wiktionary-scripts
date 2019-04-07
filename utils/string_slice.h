@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <ctype.h>
 
+#include "utils/buffer.h"
+
 typedef struct {
 	size_t len;
 	const char * str;
@@ -43,6 +45,10 @@ static inline char * str_slice_to_str (str_slice_t slice) {
 	copy[slice.len] = '\0';
 	
 	return copy;
+}
+
+static inline str_slice_t buffer_to_str_slice (buffer_t * buffer) {
+	return str_slice_init(buffer_string(buffer), buffer_length(buffer));
 }
 
 #ifdef HATTRIE_HATTRIE_H
