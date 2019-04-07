@@ -9,6 +9,7 @@
 #include "utils/parser.h"
 #include "utils/get_header.h"
 #include "utils/string_slice.h"
+#include "utils/string_set.h"
 #include "commander.h"
 
 #define HEADER_COUNTS_SIZE MAX_HEADER_LEVEL * sizeof (header_count_t)
@@ -47,17 +48,10 @@ typedef struct {
 
 #define MAX_NAMESPACES 7
 
-#define STR_SET hattrie_t
-#define STR_SET_NEW hattrie_create
-#define STR_SET_FREE hattrie_free
-#define STR_SET_ADD hattrie_get_slice
-#define STR_SET_ITER hattrie_iter_t
-#define STR_SET_ITER_FREE hattrie_iter_free
-#define STR_SET_FOR(set, iter) \
-	for (iter = hattrie_iter_begin(set, true); \
-	        !hattrie_iter_finished(iter); \
-	        hattrie_iter_next(iter))
-#define STR_SET_ITER_KEY hattrie_iter_key_slice
+#define STR_SET str_set_t
+#define STR_SET_NEW str_set_new
+#define STR_SET_FREE str_set_free
+#define STR_SET_ADD str_set_add
 
 static inline str_slice_t get_line (str_slice_t slice) {
 	const char * p = slice.str;
@@ -94,17 +88,10 @@ static inline void free_all_trie_mem (hattrie_t * trie) {
 	hattrie_iter_free(iter);
 }
 
-static inline bool str_slice_eq (const char * str, str_slice_t slice) {
-	return strlen(str) == slice.len
-	       && memcmp(str, slice.str, slice.len) == 0
-	       && str[slice.len] == '\0';
-}
-
 static inline void add_to_set (hattrie_t * titles_by_header,
                                str_slice_t header,
                                const char * title) {
 	value_t * storage = hattrie_tryget_slice(titles_by_header, header);
-	str_slice_t title_slice = str_slice_init(title, strlen(title));
 	STR_SET * titles;
 	
 	if (storage == NULL) {
@@ -113,7 +100,7 @@ static inline void add_to_set (hattrie_t * titles_by_header,
 	} else
 		titles = *(STR_SET * *) storage;
 		
-	STR_SET_ADD(titles, title_slice);
+	STR_SET_ADD(titles, title);
 }
 
 // Skip line and one or more newlines.
@@ -175,24 +162,20 @@ static bool handle_page (parse_info * info) {
 }
 
 static inline void print_header_info (const str_slice_t header,
-                                      STR_SET * headers,
+                                      STR_SET * titles,
                                       FILE * output_file) {
-	STR_SET_ITER * iter;
-	int i = 0;
 	fprintf(output_file, "%.*s\t", (int) header.len, header.str);
 	
-	STR_SET_FOR(headers, iter) {
-		str_slice_t title = STR_SET_ITER_KEY(iter);
+	for (size_t i = 0; i < titles->len; ++i) {
+		const char * title = titles->val[i];
 		
 		if (i++ > 0)
 			putc('\t', output_file);
 			
-		fprintf(output_file, "%.*s", (int) title.len, title.str);
+		fprintf(output_file, "%s", title);
 	}
 	
 	putc('\n', output_file);
-	
-	STR_SET_ITER_FREE(iter);
 }
 
 static inline void print_titles_by_header (hattrie_t * trie,
