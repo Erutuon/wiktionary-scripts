@@ -28,50 +28,69 @@ typedef struct {
 	if ((file) == NULL) \
 		perror("could not open file"), exit(-1)
 
+#define MAKE_HATTRIE_FUNC(name) \
+	static inline value_t * hattrie_##name##_slice (hattrie_t * trie, \
+                                                    str_slice_t slice) { \
+		return hattrie_##name(trie, slice.str, slice.len); \
+	}
+
+MAKE_HATTRIE_FUNC(tryget)
+MAKE_HATTRIE_FUNC(get)
+
+#undef MAKE_HATTRIE_FUNC
+
+static inline str_slice_t hattrie_iter_key_slice (hattrie_iter_t * iter) {
+	size_t len;
+	const char * key = hattrie_iter_key(iter, &len);
+	return str_slice_init(key, len);
+}
+
 static inline void increment_count (hattrie_t * trie,
-                                    const char * str,
-                                    size_t len) {
-	value_t * count = hattrie_tryget(trie, str, len);
+                                    str_slice_t key) {
+	value_t * count = hattrie_tryget_slice(trie, key);
 	
 	if (count == NULL) {
-		count = hattrie_get(trie, str, len);
+		count = hattrie_get_slice(trie, key);
 		*count = (value_t) 1;
 	} else
 		++*count;
 }
 
-static inline size_t get_line_len (const char * const line_start,
-                                   const char * const end) {
-	const char * p = line_start;
+static inline str_slice_t get_line (str_slice_t slice) {
+	const char * p = slice.str;
 	
-	while (p < end && *p != '\n')
+	while (p < STR_SLICE_END(slice) && *p != '\n')
 		++p;
 		
-	return p - line_start;
+	return str_slice_init(slice.str, p - slice.str);
+}
+
+// Skip line and one or more newlines.
+static inline str_slice_t skip_to_next_line (str_slice_t slice) {
+	const char * p = slice.str, * end = STR_SLICE_END(slice);
+	
+	while (p < end
+	        && *p != '\n')
+		++p;
+		
+	while (p < end && *p == '\n')
+		++p;
+		
+	return str_slice_init(p, end - p > 0 ? end - p : 0);
 }
 
 static inline void find_headers (hattrie_t * header_line_trie,
-                                 const char * buffer,
-                                 size_t len) {
-	const char * str = buffer;
-	const char * const end = buffer + len;
+                                 str_slice_t buffer) {
+	const char * const end = STR_SLICE_END(buffer);
 	
-	while (str < end) {
-		if (str[0] == '=') {
-			const char * line_start = str;
-			size_t line_len = get_line_len(line_start, end);
-			
-			increment_count(header_line_trie, line_start, line_len);
-			
-			str += line_len;
-		} else {
-			// Skip line and one or more newlines.
-			while (str < end && *str != '\n')
-				++str;
-				
-			while (str < end && *str == '\n')
-				++str;
-		}
+	while (buffer.str < end) {
+		if (buffer.str[0] == '=') {
+			str_slice_t line = get_line(buffer);
+			increment_count(header_line_trie, line);
+			buffer = str_slice_init(STR_SLICE_END(line),
+			                        STR_SLICE_END(buffer) - STR_SLICE_END(line));
+		} else
+			buffer = skip_to_next_line(buffer);
 	}
 }
 
@@ -90,15 +109,15 @@ static bool handle_page (parse_info * info) {
 		return false;
 		
 	buffer_t * buffer = &info->page.content;
-	find_headers(header_line_trie, buffer_string(buffer), buffer_length(buffer));
+	find_headers(header_line_trie,
+		str_slice_init(buffer_string(buffer), buffer_length(buffer)));
 	
 	return true;
 }
 
 #define HEADER_COUNTS_SIZE MAX_HEADER_LEVEL * sizeof (header_count_t)
 static inline void * add_trie_mem (hattrie_t * trie,
-                                   const char * key,
-                                   size_t key_len,
+                                   str_slice_t key,
                                    size_t mem_size) {
 	value_t * storage;
 	header_count_t * mem = malloc(mem_size);
@@ -108,7 +127,7 @@ static inline void * add_trie_mem (hattrie_t * trie,
 		
 	memset(mem, '\0', mem_size);
 	
-	storage = hattrie_get(trie, key, key_len);
+	storage = hattrie_get_slice(trie, key);
 	*storage = (value_t) mem;
 	
 	return mem;
@@ -130,18 +149,17 @@ static inline void free_all_trie_mem (hattrie_t * trie) {
 }
 
 static inline void add_header_count (hattrie_t * header_trie,
-                                     const char * const header,
-                                     const size_t header_len,
+                                     str_slice_t header,
                                      const header_level_t header_level,
                                      const header_count_t header_count) {
 	value_t * header_storage;
 	header_count_t * header_counts;
 	
 	// Check if header was already inserted.
-	header_storage = hattrie_tryget(header_trie, header, header_len);
+	header_storage = hattrie_tryget_slice(header_trie, header);
 	
 	if (header_storage == NULL) // Insert key and add pointer to array.
-		header_counts = add_trie_mem(header_trie, header, header_len, HEADER_COUNTS_SIZE);
+		header_counts = add_trie_mem(header_trie, header, HEADER_COUNTS_SIZE);
 	else
 		header_counts = (header_count_t *) *header_storage;
 		
@@ -156,21 +174,17 @@ static inline void filter_headers (hattrie_t * header_trie,
 	for (iter = hattrie_iter_begin(header_line_trie, true);
 	        !hattrie_iter_finished(iter);
 	        hattrie_iter_next(iter)) {
-		size_t header_line_len, header_len;
-		const char * header_line, * header;
+		str_slice_t header_line, header;
 		header_level_t header_level;
-		header_line = hattrie_iter_key(iter,
-		                               &header_line_len);
+		header_line = hattrie_iter_key_slice(iter);
 		                               
 		header = get_header(header_line,
-		                    header_line_len,
-		                    &header_len,
 		                    &header_level);
 		                    
 		// Insert genuine headers that are not empty strings and count the
 		// number of times that they occur.
-		if (header != NULL) {
-			if (header_len > 0) {
+		if (header.str != NULL) {
+			if (header.len > 0) {
 				value_t * header_line_storage = hattrie_iter_val(iter);
 				header_count_t header_count;
 				
@@ -181,14 +195,13 @@ static inline void filter_headers (hattrie_t * header_trie,
 				
 				add_header_count(header_trie,
 				                 header,
-				                 header_len,
 				                 header_level,
 				                 header_count);
 			} else
 				EPRINTF("found empty header\n");
 		} else
 			EPRINTF("no header found in potential header line '%.*s'\n",
-			        (int) header_line_len, header_line);
+			        (int) header_line.len, header_line.str);
 	}
 	
 	hattrie_iter_free(iter);
@@ -213,10 +226,9 @@ static inline void print_header_counts (FILE * output_file,
 }
 
 static inline void print_header_info (FILE * output_file,
-                                      const char * const key,
-                                      const size_t len,
+                                      str_slice_t key,
                                       const header_count_t * const header_counts) {
-	fprintf(output_file, "%.*s\t", (int) len, key);
+	fprintf(output_file, "%.*s\t", (int) key.len, key.str);
 	print_header_counts(output_file, header_counts);
 	putc('\n', output_file);
 }
@@ -227,15 +239,14 @@ static inline void print_header_trie (FILE * output_file, hattrie_t * trie) {
 	for (iter = hattrie_iter_begin(trie, true);
 	        !hattrie_iter_finished(iter);
 	        hattrie_iter_next(iter)) {
-		size_t len;
-		const char * key = hattrie_iter_key(iter, &len);
+		str_slice_t key = hattrie_iter_key_slice(iter);
 		value_t * value = hattrie_iter_val(iter);
 		
 		if (value == NULL)
 			CRASH_WITH_MSG("!!!");
 			
 		header_count_t * header_counts = (header_count_t *) *value;
-		print_header_info(output_file, key, len, header_counts);
+		print_header_info(output_file, key, header_counts);
 	}
 	
 	hattrie_iter_free(iter);
