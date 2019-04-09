@@ -59,15 +59,6 @@ typedef struct {
 	        hattrie_iter_next(iter))
 #define STR_SET_ITER_KEY hattrie_iter_key_slice
 
-static inline str_slice_t get_line (str_slice_t slice) {
-	const char * p = slice.str;
-	
-	while (p < STR_SLICE_END(slice) && *p != '\n')
-		++p;
-		
-	return str_slice_init(slice.str, p - slice.str);
-}
-
 static inline void * add_trie_mem (hattrie_t * trie,
                                    str_slice_t key) {
 	value_t * storage;
@@ -110,26 +101,12 @@ static inline void add_to_set (hattrie_t * titles_by_header,
 	STR_SET_ADD(titles, title_slice);
 }
 
-// Skip line and one or more newlines.
-static inline str_slice_t skip_to_next_line (str_slice_t slice) {
-	const char * p = slice.str, * end = STR_SLICE_END(slice);
-	
-	while (p < end
-	        && *p != '\n')
-		++p;
-		
-	while (p < end && *p == '\n')
-		++p;
-		
-	return str_slice_init(p, end - p > 0 ? end - p : 0);
-}
-
 static inline void find_headers (hattrie_t * titles_by_header,
                                  hattrie_t * headers_to_ignore,
                                  const char * title,
                                  str_slice_t buffer) {
 	while (buffer.str < STR_SLICE_END(buffer)) {
-		str_slice_t line = get_line(buffer);
+		str_slice_t line = str_slice_get_line(buffer);
 		
 		if (buffer.str[0] == '=') {
 			str_slice_t header = get_header(line, NULL);
@@ -141,7 +118,7 @@ static inline void find_headers (hattrie_t * titles_by_header,
 			buffer = str_slice_init(STR_SLICE_END(line),
 			                        STR_SLICE_END(buffer) - STR_SLICE_END(line));
 		} else
-			buffer = skip_to_next_line(buffer);
+			buffer = str_slice_skip_to_next_line(buffer);
 	}
 }
 

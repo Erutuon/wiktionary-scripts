@@ -47,6 +47,28 @@ static inline char * str_slice_to_str (str_slice_t slice) {
 	return copy;
 }
 
+static inline str_slice_t str_slice_get_line (str_slice_t slice) {
+	const char * p = slice.str;
+	
+	while (p < STR_SLICE_END(slice) && *p != '\n')
+		++p;
+		
+	return str_slice_init(slice.str, p - slice.str);
+}
+
+// Skip line and one or more newlines.
+static inline str_slice_t str_slice_skip_to_next_line (str_slice_t slice) {
+	const char * p = slice.str, * end = STR_SLICE_END(slice);
+	
+	while (p < end && *p != '\n')
+		++p;
+		
+	while (p < end && *p == '\n')
+		++p;
+		
+	return str_slice_init(p, end - p > 0 ? end - p : 0);
+}
+
 static inline str_slice_t buffer_to_str_slice (buffer_t * buffer) {
 	return str_slice_init(buffer_string(buffer), buffer_length(buffer));
 }

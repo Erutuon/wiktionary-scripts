@@ -39,40 +39,18 @@ static inline void increment_count (hattrie_t * trie,
 		++*count;
 }
 
-static inline str_slice_t get_line (str_slice_t slice) {
-	const char * p = slice.str;
-	
-	while (p < STR_SLICE_END(slice) && *p != '\n')
-		++p;
-		
-	return str_slice_init(slice.str, p - slice.str);
-}
-
-// Skip line and one or more newlines.
-static inline str_slice_t skip_to_next_line (str_slice_t slice) {
-	const char * p = slice.str, * end = STR_SLICE_END(slice);
-	
-	while (p < end && *p != '\n')
-		++p;
-		
-	while (p < end && *p == '\n')
-		++p;
-		
-	return str_slice_init(p, end - p > 0 ? end - p : 0);
-}
-
 static inline void add_header_lines (hattrie_t * header_line_trie,
                                      str_slice_t buffer) {
 	const char * const end = STR_SLICE_END(buffer);
 	
 	while (buffer.str < end) {
-		str_slice_t line = get_line(buffer);
+		str_slice_t line = str_slice_get_line(buffer);
 		
 		if (line.str[0] == '=')
 			increment_count(header_line_trie, line);
 			
 		buffer.str = STR_SLICE_END(line), buffer.len -= line.len;
-		buffer = skip_to_next_line(buffer);
+		buffer = str_slice_skip_to_next_line(buffer);
 	}
 }
 
