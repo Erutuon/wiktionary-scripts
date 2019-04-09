@@ -28,8 +28,8 @@ typedef struct {
 	if ((file) == NULL) \
 		perror("could not open file"), exit(-1)
 
-static inline void increment_count (hattrie_t * trie,
-                                    str_slice_t key) {
+static inline void increment_count (str_slice_t key,
+                                    hattrie_t * trie) {
 	value_t * count = hattrie_tryget_slice(trie, key);
 	
 	if (count == NULL) {
@@ -39,19 +39,9 @@ static inline void increment_count (hattrie_t * trie,
 		++*count;
 }
 
-static inline void add_header_lines (hattrie_t * header_line_trie,
-                                     str_slice_t buffer) {
-	const char * const end = STR_SLICE_END(buffer);
-	
-	while (buffer.str < end) {
-		str_slice_t line = str_slice_get_line(buffer);
-		
-		if (line.str[0] == '=')
-			increment_count(header_line_trie, line);
-			
-		buffer.str = STR_SLICE_END(line), buffer.len -= line.len;
-		buffer = str_slice_skip_to_next_line(buffer);
-	}
+static void count_header_lines (str_slice_t line, void * data) {
+	hattrie_t * header_line_trie = data;
+	return increment_count(line, header_line_trie);
 }
 
 static bool handle_page (parse_info * info) {
@@ -68,9 +58,10 @@ static bool handle_page (parse_info * info) {
 	if (++page_count > data->pages_to_process)
 		return false;
 		
-	add_header_lines(header_line_trie,
-	                 buffer_to_str_slice(&info->page.content));
-	                 
+	for_each_possible_header_line(buffer_to_str_slice(&info->page.content),
+	                              count_header_lines,
+	                              header_line_trie);
+	                              
 	return true;
 }
 

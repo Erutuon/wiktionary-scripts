@@ -5,8 +5,24 @@
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
+void for_each_possible_header_line (str_slice_t slice,
+                                    header_line_callback_t callback,
+                                    void * data) {
+	const char * const end = STR_SLICE_END(slice);
+	
+	while (slice.str < end) {
+		str_slice_t line = str_slice_get_line(slice);
+		
+		if (line.str[0] == '=')
+			callback(line, data);
+			
+		slice.str = STR_SLICE_END(line), slice.len -= line.len;
+		slice = str_slice_skip_to_next_line(slice);
+	}
+}
+
 str_slice_t get_header (str_slice_t line,
-                         header_level_t * header_level) {
+                        header_level_t * header_level) {
 	const char * p, * header_last_char, * last_equals, * line_end;
 	int start_equals, end_equals, header_equals;
 	str_slice_t header = { 0, NULL };
@@ -60,7 +76,7 @@ str_slice_t get_header (str_slice_t line,
 		// Two equals signs don't make a header.
 		if (total_equals <= 2)
 			return NULL_SLICE;
-		
+			
 		if (header_level != NULL)
 			*header_level = start_equals;
 			
@@ -85,13 +101,13 @@ str_slice_t get_header (str_slice_t line,
 		header.str -= start_equals - header_equals;
 		header_last_char += end_equals - header_equals;
 	}
-		
+	
 	if (header_level != NULL)
 		*header_level = header_equals;
-	
-	header.len = header.str > header_last_char
-		? 0
-		: (size_t) (header_last_char - header.str + 1);
 		
+	header.len = header.str > header_last_char
+	             ? 0
+	             : (size_t) (header_last_char - header.str + 1);
+	             
 	return trim(header);
 }

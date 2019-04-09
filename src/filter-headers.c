@@ -38,14 +38,16 @@ typedef struct {
 } option_t;
 
 typedef struct {
-	header_count_t counts[HEADER_COUNTS_SIZE];
-	char header[1];
-} header_info_t;
+	hattrie_t * titles_by_header, * headers_to_ignore;
+	const char * title;
+} header_line_callback_data;
 
 #define PAGE_COUNT_SCAN_FORMAT "%" SCNu32
 #define PAGE_COUNT_PRINT_FORMAT "%" PRIu32
 
 #define MAX_NAMESPACES 7
+
+#define REINTERPRET_CAST(type, val) (*(type *) val)
 
 #define STR_SET hattrie_t
 #define STR_SET_NEW hattrie_create
@@ -59,14 +61,18 @@ typedef struct {
 	        hattrie_iter_next(iter))
 #define STR_SET_ITER_KEY hattrie_iter_key_slice
 
-static inline void * add_trie_mem (hattrie_t * trie,
-                                   str_slice_t key) {
-	value_t * storage;
-	STR_SET * set = STR_SET_NEW();
+static inline STR_SET * get_trie_mem (hattrie_t * trie,
+                                      str_slice_t key) {
+	STR_SET * set;
+	value_t * storage = hattrie_tryget_slice(trie, key);
 	
-	storage = hattrie_get_slice(trie, key);
-	*storage = (value_t) set;
-	
+	if (storage == NULL) {
+		set = STR_SET_NEW();
+		storage = hattrie_get_slice(trie, key);
+		*storage = (value_t) set;
+	} else
+		set = REINTERPRET_CAST(STR_SET *, storage);
+		
 	return set;
 }
 
@@ -85,40 +91,26 @@ static inline void free_all_trie_mem (hattrie_t * trie) {
 	hattrie_iter_free(iter);
 }
 
-static inline void add_to_set (hattrie_t * titles_by_header,
-                               str_slice_t header,
-                               const char * title) {
-	value_t * storage = hattrie_tryget_slice(titles_by_header, header);
-	str_slice_t title_slice = str_slice_init(title, strlen(title));
-	STR_SET * titles;
-	
-	if (storage == NULL) {
-		titles = add_trie_mem(titles_by_header,
-		                       header);
-	} else
-		titles = *(STR_SET * *) storage;
-		
-	STR_SET_ADD(titles, title_slice);
+static inline void add_to_set (hattrie_t * sets_by_key,
+                               str_slice_t key,
+                               const char * str) {
+	str_slice_t str_slice = str_slice_init(str, strlen(str));
+	STR_SET * set = get_trie_mem(sets_by_key, key);
+	STR_SET_ADD(set, str_slice);
 }
 
-static inline void find_headers (hattrie_t * titles_by_header,
-                                 hattrie_t * headers_to_ignore,
-                                 const char * title,
-                                 str_slice_t buffer) {
-	while (buffer.str < STR_SLICE_END(buffer)) {
-		str_slice_t line = str_slice_get_line(buffer);
+static void header_line_callback (str_slice_t header_line,
+                                  void * data) {
+	str_slice_t header = get_header(header_line, NULL);
+	
+	if (header.str != NULL && header.len > 0) {
+		header_line_callback_data * callback_data = data;
+		hattrie_t * headers_to_ignore = callback_data->headers_to_ignore;
 		
-		if (buffer.str[0] == '=') {
-			str_slice_t header = get_header(line, NULL);
-			
-			if (header.str != NULL && header.len > 0
-			        && hattrie_tryget_slice(headers_to_ignore, header) == NULL)
-				add_to_set(titles_by_header, header, title);
-				
-			buffer = str_slice_init(STR_SLICE_END(line),
-			                        STR_SLICE_END(buffer) - STR_SLICE_END(line));
-		} else
-			buffer = str_slice_skip_to_next_line(buffer);
+		if (hattrie_tryget_slice(headers_to_ignore, header) == NULL) {
+			hattrie_t * titles_by_header = callback_data->titles_by_header;
+			add_to_set(titles_by_header, header, callback_data->title);
+		}
 	}
 }
 
@@ -127,21 +119,19 @@ static bool handle_page (parse_info * info) {
 	hattrie_t * titles_by_header = data->trie;
 	hattrie_t * headers_to_ignore = data->headers_to_ignore;
 	static uint32_t page_count = 0;
-	
-	// Skip user talk page moved into mainspace.
-	if (memcmp(info->page.title, "User-talk:", sizeof "User-talk:" - 1) == 0) {
-		EPRINTF("Skipped '%s'\n", info->page.title);
-		return true;
-	}
+	header_line_callback_data callback_data = {
+		titles_by_header,
+		headers_to_ignore,
+		info->page.title
+	};
 	
 	if (++page_count > data->pages_to_process)
 		return false;
 		
-	find_headers(titles_by_header,
-	             headers_to_ignore,
-	             info->page.title,
-	             buffer_to_str_slice(&info->page.content));
-	             
+	for_each_possible_header_line(buffer_to_str_slice(&info->page.content),
+	                              header_line_callback,
+	                              &callback_data);
+	                              
 	return true;
 }
 
