@@ -5,7 +5,9 @@ INCLUDES = -I $(COMMANDER_DIR) -I .
 CFLAGS = -Wall -Wextra $(INCLUDES) $(MYCFLAGS)
 
 ifdef debug
-CFLAGS += -g
+CFLAGS += -g -fsanitize=address -fno-omit-frame-pointer
+else
+CFLAGS += -O3
 endif
 
 # Change this to the path of the latest pages-meta-current.xml
