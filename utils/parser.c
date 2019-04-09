@@ -54,8 +54,8 @@ void format_byte_count (size_t bytes, char * buf, size_t buf_len) {
 	static const char * units[] = { "B", "KiB", "MiB", "GiB" };
 	double accum = bytes;
 	unsigned int magnitude = 0,
-	    printed;
-	    
+	             printed;
+	             
 	while (accum / 1024 >= 1 && magnitude + 1 < ARRAY_SIZE(units))
 		accum = accum / 1024, ++magnitude;
 		
@@ -311,13 +311,13 @@ static inline void print_parser_info(XML_Parser parser,
 }
 
 void parse_Wiktionary_page_dump (FILE * XML_file,
-                 page_callback handle_page,
-				 Wiktionary_namespace_t * namespaces,
-                 void * data) {
+                                 page_callback handle_page,
+                                 Wiktionary_namespace_t * namespaces,
+                                 void * data) {
 	if (sizeof (XML_Char) != sizeof (char))
 		CRASH_WITH_MSG("This function assumes XML_Char (%zu bytes) is the same size as char (%zu bytes).",
 		               sizeof (XML_Char), sizeof (char));
-		            
+		               
 	time_t start_time, end_time;
 	parse_info info;
 	XML_Parser parser;

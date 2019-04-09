@@ -67,5 +67,5 @@ void buffer_print (buffer_t * buffer) {
 		
 	printf("size: %zu; length: %zu; value: '%.*s'\n",
 	       buffer_size(buffer), buffer_length(buffer),
-		   (int) buffer_length(buffer), buffer_string(buffer));
+	       (int) buffer_length(buffer), buffer_string(buffer));
 }
