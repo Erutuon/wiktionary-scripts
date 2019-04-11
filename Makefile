@@ -10,6 +10,8 @@ else
 CFLAGS += -O3
 endif
 
+COMPILE = $(CC) $(CFLAGS)
+
 # Change this to the path of the latest pages-meta-current.xml
 # from the Wiktionary dump.
 PAGES_XML = pages.xml
@@ -19,16 +21,16 @@ PAGES_XML = pages.xml
 
 # all-headers, filter-headers
 %-headers: $(SHARED_OBJS) src/$$@.o utils/get_header.o
-	$(CC) $(CFLAGS) $(SHARED_OBJS) src/$@.o utils/get_header.o \
+	$(COMPILE) $(SHARED_OBJS) src/$@.o utils/get_header.o \
 		-o bin/$@ $(LIBS) -lhat-trie
 
 find-templates: $(SHARED_OBJS) src/$$@.o
-	$(CC) $(CFLAGS) $(SHARED_OBJS) src/$@.o \
+	$(COMPILE) $(SHARED_OBJS) src/$@.o \
 		-o bin/$@ $(LIBS)
 
 find-multiple-templates: $(SHARED_OBJS) src/$$@.o
-	$(CC) $(CFLAGS) $(SHARED_OBJS) src/$@.o \
+	$(COMPILE) $(SHARED_OBJS) src/$@.o \
 		-o bin/$@ $(LIBS) -lhat-trie
 
 utils/commander.o: $(COMMANDER_DIR)/commander.c
-	$(CC) $(CFLAGS) -c $(COMMANDER_DIR)/commander.c -o $@
+	$(COMPILE) -c $(COMMANDER_DIR)/commander.c -o $@

@@ -1,6 +1,12 @@
 #ifndef WIKTIONARY_PAGE_PARSER_H
 #define WIKTIONARY_PAGE_PARSER_H
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+
+#include "utils/buffer.h"
+
 #define EPRINTF(...) fprintf(stderr, __VA_ARGS__)
 #define CRASH_WITH_MSG(...) EPRINTF(__VA_ARGS__), exit(-1)
 
@@ -102,7 +108,7 @@ typedef struct {
 
 typedef struct _parse_info parse_info;
 
-typedef bool (*page_callback) (parse_info * page_content);
+typedef bool (*page_callback) (parse_info * info);
 
 typedef struct _parse_info {
 	bool copy;
