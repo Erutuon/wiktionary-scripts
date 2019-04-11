@@ -12,6 +12,7 @@ bin*
 
 # random stuff
 sandbox*
+templates
 
 # not yet integrated into Makefile
 examples*
