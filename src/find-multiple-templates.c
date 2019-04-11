@@ -42,8 +42,9 @@
 // and is set with STORE_IN_PTR, gotten with GET_STORED_VAL, and removed
 // by GET_PTR_VAL (so that the pointer can be safely dereferenced).
 // https://stackoverflow.com/questions/16198700/using-the-extra-16-bits-in-64-bit-pointers
-typedef unsigned int output_file_mask_t;
+typedef uint64_t output_file_mask_t;
 static uint16_t output_file_bit_index = 0;
+
 #define MAX_OUTPUT_FILES (sizeof (output_file_mask_t) * CHAR_BITS)
 
 #define CHECK_FILE(file) \
@@ -219,7 +220,7 @@ static inline void get_input_file (command_t * commands) {
 
 static inline uint16_t increment_output_file_bit_index() {
 	if (output_file_bit_index >= MAX_OUTPUT_FILES)
-		CRASH_WITH_MSG("too many output files");
+		CRASH_WITH_MSG("too many output files\n");
 	else
 		return output_file_bit_index++;
 }
@@ -263,7 +264,7 @@ static inline void add_template_names_to_trie (FILE * template_names_file,
 			if (filename_slice.len < sizeof filename - 1)
 				strncpy(filename, filename_slice.str, sizeof filename - 1);
 			else
-				CRASH_WITH_MSG("filename '%.*s' too long",
+				CRASH_WITH_MSG("filename '%.*s' too long\n",
 				               (int) filename_slice.len,
 				               filename_slice.str);
 				               
@@ -360,12 +361,12 @@ static void get_filter (command_t * commands) {
 	char * filter;
 	
 	if (strlen(commands->arg) == 0)
-		CRASH_WITH_MSG("expected non-empty string"); // ???
+		CRASH_WITH_MSG("expected non-empty string\n"); // ???
 		
 	filter = strdup(commands->arg);
 	
 	if (filter == NULL)
-		CRASH_WITH_MSG("not enough memory");
+		CRASH_WITH_MSG("not enough memory\n");
 		
 	data->filter = filter;
 }
@@ -490,7 +491,7 @@ static inline void close_files (FILE * input_file,
 	if ((input_file != NULL && fclose(input_file) == EOF)
 	        || (default_output_file != NULL
 	            && fclose(GET_PTR_VAL(default_output_file)) == EOF))
-		CRASH_WITH_MSG("failed to close file");
+		CRASH_WITH_MSG("failed to close file\n");
 		
 	hattrie_iter_t * iter;
 	
@@ -504,7 +505,7 @@ static inline void close_files (FILE * input_file,
 		FILE * file = (FILE *) GET_PTR_VAL(*val);
 		
 		if (fclose(file) == EOF)
-			CRASH_WITH_MSG("failed to close file");
+			CRASH_WITH_MSG("failed to close file\n");
 	}
 	
 	hattrie_iter_free(iter);
