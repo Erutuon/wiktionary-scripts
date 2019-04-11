@@ -10,6 +10,9 @@
 # output directory
 bin*
 
+# random stuff
+sandbox*
+
 # not yet integrated into Makefile
 examples*
 
