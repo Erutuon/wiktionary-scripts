@@ -1,10 +1,20 @@
 #include <stdio.h>
 #include <lua.h>
+#include <lualib.h>
 #include <lauxlib.h>
 
 #include "utils/parser.h"
 #include "utils/string_slice.h"
 #include "utils/buffer.h"
+
+static void print_Lua_error(lua_State * L, const char * msg) {
+	EPRINTF("%s", msg);
+	if (lua_type(L, -1) == LUA_TSTRING) {
+		const char * err = lua_tostring(L, -1);
+		EPRINTF(": %s", err);
+	}
+	EPRINTF("\n");
+}
 
 static bool process_page (parse_info * info) {
 	lua_State * L = info->additional_data;
@@ -15,8 +25,11 @@ static bool process_page (parse_info * info) {
 	lua_pushvalue(L, -1); // push function
 	lua_pushlstring(L, content.str, content.len);
 	lua_pushstring(L, page.title);
-	if (lua_pcall(L, 2, 1, 0) != LUA_OK)
-		CRASH_WITH_MSG("error while calling function\n");
+	
+	if (lua_pcall(L, 2, 1, 0) != LUA_OK) {
+		print_Lua_error(L, "error while calling function");
+		exit(EXIT_FAILURE);
+	}
 	
 	if (lua_type(L, -1) != LUA_TBOOLEAN)
 		CRASH_WITH_MSG("function did not return a boolean\n");
@@ -37,8 +50,10 @@ int main (int argc, const char * * argv) {
 	L = luaL_newstate();
 	luaL_openlibs(L);
 	
-	if (luaL_dofile(L, argv[1]) != LUA_OK)
-		CRASH_WITH_MSG("error while running script\n");
+	if (luaL_dofile(L, argv[1]) != LUA_OK) {
+		print_Lua_error(L, "error while running script");
+		exit(EXIT_FAILURE);
+	}
 	
 	if (lua_type(L, -1) != LUA_TFUNCTION)
 		CRASH_WITH_MSG("script did not return a function");
