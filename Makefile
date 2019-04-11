@@ -11,6 +11,7 @@ CFLAGS += -O3
 endif
 
 COMPILE = $(CC) $(CFLAGS)
+LUA_LIBS = -llua -ldl -lm
 
 # Change this to the path of the latest pages-meta-current.xml
 # from the Wiktionary dump.
@@ -31,6 +32,10 @@ find-templates: $(SHARED_OBJS) src/$$@.o
 find-multiple-templates: $(SHARED_OBJS) src/$$@.o
 	$(COMPILE) $(SHARED_OBJS) src/$@.o \
 		-o bin/$@ $(LIBS) -lhat-trie
+
+process-with-lua: utils/buffer.o utils/parser.o src/$$@.o
+	$(COMPILE) utils/buffer.o utils/parser.o src/$@.o \
+		-o bin/$@ $(LIBS) $(LUA_LIBS)
 
 utils/commander.o: $(COMMANDER_DIR)/commander.c
 	$(COMPILE) -c $(COMMANDER_DIR)/commander.c -o $@
