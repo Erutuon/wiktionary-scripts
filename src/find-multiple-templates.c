@@ -529,7 +529,12 @@ static inline void clean_up(option_data * options) {
 
 int main (int argc, char * * argv) {
 	option_data options = {};
-	Wiktionary_namespace_t namespaces[] = { NAMESPACE_MAIN, NAMESPACE_NONE };
+	Wiktionary_namespace_t namespaces[] = {
+		NAMESPACE_MAIN,
+		NAMESPACE_RECONSTRUCTION,
+		NAMESPACE_APPENDIX,
+		NAMESPACE_NONE
+	};
 	
 	parse_arguments(argc, argv, &options);
 	
