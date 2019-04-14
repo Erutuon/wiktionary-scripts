@@ -119,9 +119,7 @@ static str_slice_t find_template (const char * const title,
 		
 		if (template_name.len > 0) {
 			value_t * entry;
-			entry = hattrie_tryget(template_names,
-			                       template_name.str,
-			                       template_name.len);
+			entry = hattrie_tryget_slice(template_names, template_name);
 			                       
 			if (entry != NULL) {
 				FILE * output_file = GET_PTR_VAL(*entry);
@@ -384,13 +382,12 @@ static void print_trie_keys (hattrie_t * trie) {
 	for (iter = hattrie_iter_begin(trie, true);
 	        !hattrie_iter_finished(iter);
 	        hattrie_iter_next(iter)) {
-		size_t len;
-		const char * key = hattrie_iter_key(iter, &len);
+		str_slice_t key = hattrie_iter_key_slice(iter);
 		
 		if (i++ > 0)
 			fprintf(stderr, ", ");
 			
-		fprintf(stderr, "'%s'", key);
+		fprintf(stderr, "'%.*s'", (int) key.len, key.str);
 	}
 	
 	putc('\n', stderr);
@@ -408,11 +405,10 @@ static void add_default_output_file (hattrie_t * template_names,
 		
 		if ((void *) *val == NULL) {
 			if (default_output_file == NULL) {
-				size_t len;
-				const char * key = hattrie_iter_key(iter, &len);
+				str_slice_t key = hattrie_iter_key_slice(iter);
 				CRASH_WITH_MSG("default output file required for template "
 				               "'%.*s', which has no output file specified\n",
-				               (int) len, key);
+				               (int) key.len, key.str);
 			} else
 				*val = (value_t) default_output_file;
 		}
