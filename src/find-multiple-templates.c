@@ -79,6 +79,30 @@ static inline str_slice_t get_template_name (const str_slice_t slice) {
 	return trim(str_slice_init(name_start, p - name_start));
 }
 
+static inline void handle_template (const char * title,
+                                    str_slice_t template_name,
+                                    str_slice_t template,
+                                    hattrie_t * template_names,
+                                    output_file_mask_t * output_file_mask,
+                                    bool * found) {
+	value_t * entry;
+	entry = hattrie_tryget_slice(template_names, template_name);
+	
+	if (entry != NULL) {
+		FILE * output_file = GET_PTR_VAL(*entry);
+		int bit_pos = GET_STORED_VAL(*entry);
+		
+		*found = true;
+		
+		if (!GET_BIT_AT(*output_file_mask, bit_pos)) {
+			fprintf(output_file, "\1%s\n", title);
+			*output_file_mask = SET_BIT_AT(*output_file_mask, bit_pos, true);
+		}
+		
+		fprintf(output_file, "%.*s\n", (int) template.len, template.str);
+	}
+}
+
 static str_slice_t find_template (const char * const title,
                                   const str_slice_t possible_template,
                                   hattrie_t * template_names,
@@ -118,28 +142,17 @@ static str_slice_t find_template (const char * const title,
 		template = str_slice_init(possible_template.str, p - possible_template.str);
 		
 		if (template_name.len > 0) {
-			value_t * entry;
-			entry = hattrie_tryget_slice(template_names, template_name);
-			                       
-			if (entry != NULL) {
-				FILE * output_file = GET_PTR_VAL(*entry);
-				int bit_pos = GET_STORED_VAL(*entry);
-				
-				*found = true;
-				
-				if (!GET_BIT_AT(*output_file_mask, bit_pos)) {
-					fprintf(output_file, "\1%s\n", title);
-					*output_file_mask = SET_BIT_AT(*output_file_mask, bit_pos, true);
-				}
-				
-				fprintf(output_file, "%.*s\n", (int) template.len, template.str);
-			}
-		} else {
-			if (verbose)
-				EPRINTF("nameless template on page '%s' at '%.*s'\n",
-				        title,
-				        (int) template.len,
-				        template.str);
+			handle_template(title,
+			                template_name,
+			                template,
+			                template_names,
+			                output_file_mask,
+			                found);
+		} else if (verbose) {
+			EPRINTF("nameless template on page '%s' at '%.*s'\n",
+			        title,
+			        (int) template.len,
+			        template.str);
 		}
 	} else {
 		template = str_slice_init(NULL, (size_t) -1);
