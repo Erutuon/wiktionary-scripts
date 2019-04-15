@@ -79,6 +79,17 @@ static inline str_slice_t get_template_name (const str_slice_t slice) {
 	return trim(str_slice_init(name_start, p - name_start));
 }
 
+static inline void replace_underscores_with_spaces (char * str, size_t len) {
+	char * p = str;
+	
+	while (p < str + len) {
+		if (*p == '_')
+			*p = ' ';
+			
+		++p;
+	}
+}
+
 static inline void handle_template (const char * title,
                                     str_slice_t template_name,
                                     str_slice_t template,
@@ -86,8 +97,19 @@ static inline void handle_template (const char * title,
                                     output_file_mask_t * output_file_mask,
                                     bool * found) {
 	value_t * entry;
-	entry = hattrie_tryget_slice(template_names, template_name);
+	char normalized_template_name[PAGE_NAME_LEN];
 	
+	if (!str_slice_cpy(template_name,
+	                   normalized_template_name,
+	                   sizeof normalized_template_name))
+		return;
+		
+	replace_underscores_with_spaces(normalized_template_name, template_name.len);
+	
+	entry = hattrie_tryget(template_names,
+	                       normalized_template_name,
+	                       template_name.len);
+	                       
 	if (entry != NULL) {
 		FILE * output_file = GET_PTR_VAL(*entry);
 		int bit_pos = GET_STORED_VAL(*entry);
@@ -253,9 +275,13 @@ static inline void add_template_names_to_trie (FILE * template_names_file,
 	while (fgets(line, BUFSIZ, template_names_file) != NULL) {
 		const char * tab = strchr(line, '\t');
 		size_t len = tab != NULL ? (size_t) (tab - line) : strlen(line);
-		str_slice_t template_name = trim(str_slice_init(line, len));
+		str_slice_t template_name;
 		value_t * entry;
 		++count;
+		
+		replace_underscores_with_spaces(line, len);
+		
+		template_name = trim(str_slice_init(line, len));
 		
 		if (template_name.len == 0)
 			CRASH_WITH_MSG("file contains an empty line\n");

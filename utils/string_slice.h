@@ -35,14 +35,23 @@ static inline str_slice_t trim (const str_slice_t slice) {
 	return str_slice_init(start, end - start);
 }
 
+static inline bool str_slice_cpy (str_slice_t slice, char * dest, size_t dest_len) {
+	if (slice.len > dest_len - 1)
+		return false;
+	
+	memcpy(dest, slice.str, slice.len);
+	dest[slice.len] = '\0';
+	
+	return true;
+}
+
 static inline char * str_slice_to_str (str_slice_t slice) {
 	char * copy = malloc(slice.len + 1);
 	
 	if (copy == NULL)
 		fprintf(stderr, "could not allocate memory\n"), exit(EXIT_FAILURE);
-		
-	memcpy(copy, slice.str, slice.len);
-	copy[slice.len] = '\0';
+	
+	str_slice_cpy(slice, copy, slice.len + 1);
 	
 	return copy;
 }
