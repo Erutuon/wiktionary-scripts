@@ -65,6 +65,70 @@ void format_byte_count (size_t bytes, char * buf, size_t buf_len) {
 		EPRINTF("buffer not long enough\n");
 }
 
+#define NAMESPACE_VAR name
+#define NAMESPACE_CASE(var, name) \
+	case NAMESPACE_##var: \
+		NAMESPACE_VAR = name; break;
+
+const char * get_namespace_name (Wiktionary_namespace_t number) {
+	const char * NAMESPACE_VAR;
+	
+	switch (number) {
+		NAMESPACE_CASE(MEDIA, "Media")
+		NAMESPACE_CASE(SPECIAL, "Special")
+		NAMESPACE_CASE(MAIN, "")
+		NAMESPACE_CASE(TALK, "Talk")
+		NAMESPACE_CASE(USER, "User")
+		NAMESPACE_CASE(USER_TALK, "User talk")
+		NAMESPACE_CASE(WIKTIONARY, "Wiktionary")
+		NAMESPACE_CASE(WIKTIONARY_TALK, "Wiktionary talk")
+		NAMESPACE_CASE(FILE, "File")
+		NAMESPACE_CASE(FILE_TALK, "File talk")
+		NAMESPACE_CASE(MEDIAWIKI, "MediaWiki")
+		NAMESPACE_CASE(MEDIAWIKI_TALK, "MediaWiki talk")
+		NAMESPACE_CASE(TEMPLATE, "Template")
+		NAMESPACE_CASE(TEMPLATE_TALK, "Template talk")
+		NAMESPACE_CASE(HELP, "Help")
+		NAMESPACE_CASE(HELP_TALK, "Help talk")
+		NAMESPACE_CASE(CATEGORY, "Category")
+		NAMESPACE_CASE(CATEGORY_TALK, "Category talk")
+		NAMESPACE_CASE(THREAD, "Thread")
+		NAMESPACE_CASE(THREAD_TALK, "Thread talk")
+		NAMESPACE_CASE(SUMMARY, "Summary")
+		NAMESPACE_CASE(SUMMARY_TALK, "Summary talk")
+		NAMESPACE_CASE(APPENDIX, "Appendix")
+		NAMESPACE_CASE(APPENDIX_TALK, "Appendix talk")
+		NAMESPACE_CASE(CONCORDANCE, "Concordance")
+		NAMESPACE_CASE(CONCORDANCE_TALK, "Concordance talk")
+		NAMESPACE_CASE(INDEX, "Index")
+		NAMESPACE_CASE(INDEX_TALK, "Index talk")
+		NAMESPACE_CASE(RHYMES, "Rhymes")
+		NAMESPACE_CASE(RHYMES_TALK, "Rhymes talk")
+		NAMESPACE_CASE(TRANSWIKI, "Transwiki")
+		NAMESPACE_CASE(TRANSWIKI_TALK, "Transwiki talk")
+		NAMESPACE_CASE(THESAURUS, "Thesaurus")
+		NAMESPACE_CASE(THESAURUS_TALK, "Thesaurus talk")
+		NAMESPACE_CASE(CITATIONS, "Citations")
+		NAMESPACE_CASE(CITATIONS_TALK, "Citations talk")
+		NAMESPACE_CASE(SIGN_GLOSS, "Sign gloss")
+		NAMESPACE_CASE(SIGN_GLOSS_TALK, "Sign gloss talk")
+		NAMESPACE_CASE(RECONSTRUCTION, "Reconstruction")
+		NAMESPACE_CASE(RECONSTRUCTION_TALK, "Reconstruction talk")
+		NAMESPACE_CASE(MODULE, "Module")
+		NAMESPACE_CASE(MODULE_TALK, "Module talk")
+		NAMESPACE_CASE(GADGET, "Gadget")
+		NAMESPACE_CASE(GADGET_TALK, "Gadget talk")
+		NAMESPACE_CASE(GADGET_DEFINITION, "Gadget definition")
+		NAMESPACE_CASE(GADGET_DEFINITION_TALK, "Gadget definition talk")
+		default:
+			name = "???"; break;
+	}
+	
+	return NAMESPACE_VAR;
+}
+
+#undef NAMESPACE_CASE
+
 // name and namespace buffers must be zeroed at beginning of each new page tag
 // so that copy_to_buf works properly.
 static inline void reset_page (page_info * page) {

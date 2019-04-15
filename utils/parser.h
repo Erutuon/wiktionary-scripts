@@ -125,6 +125,8 @@ typedef struct _parse_info {
 	page_info page;
 } parse_info;
 
+const char * get_namespace_name (Wiktionary_namespace_t number);
+
 void parse_Wiktionary_page_dump (FILE * XML_file,
                  page_callback handle_page,
 				 Wiktionary_namespace_t * namespaces,
