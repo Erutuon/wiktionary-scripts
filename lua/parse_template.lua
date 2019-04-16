@@ -35,8 +35,6 @@ local function make_template_pattern(capture)
 	return capture and C(template) or template
 end
 
--- test:
--- lua -lp=parse_template -li=inspect -e "print(i(p '{{ t || name = value |   test  |test [[it]] = 1|3=two|[[{{PAGENAME}}|test]]=one point one}}'))"
 local parameter_pattern = P {
 	P "|" * ((ws^0
 		* C((ws^0 * ((1 - (S "=|" + ws + V "not_in_params"))^1 + (V "template" + V "link")^1))^0)
@@ -63,17 +61,6 @@ local function log_conflicts(parameters, conflicts, key, value)
 	end
 end
 
-local function log_and_return(...)
-	local vals = table.pack(...)
-	for i = 1, vals.n do
-		if i ~= 1 then io.write '\t' end
-		io.write(('%q'):format(vals[i]))
-	end
-	io.write '\n'
-	
-	return ...
-end
-
 local template_pattern = make_template_pattern(true)
 local function parse_template(str)
 	local template, title, body = template_pattern:match(str)
@@ -91,23 +78,21 @@ local function parse_template(str)
 		-- name: string or nil
 		-- value: string
 		-- pos: integer
-		name, value, pos = log_and_return(parameter_pattern:match(body, pos))
+		name, value, pos = parameter_pattern:match(body, pos)
 		
 		if not value then break end
 		
+		local key
 		if name then
-			name = tonumber(name) or name
-			
-			log_conflicts(parameters, conflicts, name, value)
-			
-			parameters[name] = value
+			key = tonumber(name) or name
 		else
 			i = i + 1
-			
-			log_conflicts(parameters, conflicts, i, value)
-			
-			parameters[i] = value
+			key = i
 		end
+			
+		log_conflicts(parameters, conflicts, key, value)
+		
+		parameters[key] = value
 	end
 	
 	return parameters, conflicts
