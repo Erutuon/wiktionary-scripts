@@ -62,8 +62,8 @@ local function log_conflicts(parameters, conflicts, key, value)
 end
 
 local template_pattern = make_template_pattern(true)
-local function parse_template(str)
-	local template, title, body = template_pattern:match(str)
+local function parse_template(str, pos)
+	local template, title, body = template_pattern:match(str, pos)
 	
 	if not template then
 		error("The pattern did not match the string " .. str .. ".")
@@ -87,7 +87,7 @@ local function parse_template(str)
 		name, value, new_pos = parameter_pattern:match(body, pos)
 		
 		if not value then
-			if pos < #body then
+			if (pos or 0) < #body then
 				io.stderr:write("parameter pattern didn't match after position ", pos, "\n")
 			end
 			break
