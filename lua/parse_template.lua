@@ -71,16 +71,29 @@ local function parse_template(str)
 	
 	local pos
 	local i = 0
-	local parameters = { _text = template, _name = title, _body = body }
-	local conflicts = {}
+	local parameters, conflicts = {}, {}
+	local template = {
+		text = template,
+		name = title,
+		body = body,
+		parameters = parameters,
+		conflicts = conflicts
+	}
 	while true do
-		local name, value
+		local name, value, new_pos
 		-- name: string or nil
 		-- value: string
 		-- pos: integer
-		name, value, pos = parameter_pattern:match(body, pos)
+		name, value, new_pos = parameter_pattern:match(body, pos)
 		
-		if not value then break end
+		if not value then
+			if pos < #body then
+				io.stderr:write("parameter pattern didn't match after position ", pos, "\n")
+			end
+			break
+		else
+			pos = new_pos
+		end
 		
 		local key
 		if name then
@@ -95,7 +108,7 @@ local function parse_template(str)
 		parameters[key] = value
 	end
 	
-	return parameters, conflicts
+	return template
 end
 
 return parse_template
