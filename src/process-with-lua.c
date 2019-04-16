@@ -9,10 +9,12 @@
 
 static void print_Lua_error(lua_State * L, const char * msg) {
 	EPRINTF("%s", msg);
+	
 	if (lua_type(L, -1) == LUA_TSTRING) {
 		const char * err = lua_tostring(L, -1);
 		EPRINTF(": %s", err);
 	}
+	
 	EPRINTF("\n");
 }
 
@@ -21,32 +23,40 @@ static bool process_page (parse_info * info) {
 	const page_info page = info->page;
 	const buffer_t content = page.content;
 	bool res;
+	const char * namespace_name = get_namespace_name(page.namespace);
 	
 	lua_pushvalue(L, -1); // push function
 	lua_pushlstring(L, content.str, content.len);
 	lua_pushstring(L, page.title);
+	lua_pushstring(L, namespace_name);
 	
-	if (lua_pcall(L, 2, 1, 0) != LUA_OK) {
+	if (lua_pcall(L, 3, 1, 0) != LUA_OK) {
 		print_Lua_error(L, "error while calling function");
 		exit(EXIT_FAILURE);
 	}
 	
 	if (lua_type(L, -1) != LUA_TBOOLEAN)
 		CRASH_WITH_MSG("function did not return a boolean\n");
-	
+		
 	// whether to continue processing pages
 	res = lua_toboolean(L, -1);
+	
 	lua_pop(L, 1);
+	
 	return res;
 }
 
 int main (int argc, const char * * argv) {
-	Wiktionary_namespace_t namespaces[] = { NAMESPACE_MAIN, NAMESPACE_NONE };
+	Wiktionary_namespace_t namespaces[] = {
+		NAMESPACE_RECONSTRUCTION,
+		NAMESPACE_APPENDIX,
+		NAMESPACE_NONE
+	};
 	lua_State * L;
 	
 	if (argc < 2)
 		CRASH_WITH_MSG("not enough arguments\n");
-	
+		
 	L = luaL_newstate();
 	luaL_openlibs(L);
 	
@@ -57,7 +67,7 @@ int main (int argc, const char * * argv) {
 	
 	if (lua_type(L, -1) != LUA_TFUNCTION)
 		CRASH_WITH_MSG("script did not return a function");
-	
+		
 	parse_Wiktionary_page_dump(stdin, process_page, namespaces, L);
 	
 	lua_close(L);
