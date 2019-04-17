@@ -119,10 +119,11 @@ static inline char * process_args (option_t * options,
 	
 	if (commands.argc == 1)
 		script_file = strdup(commands.argv[0]);
-	else if (commands.argc == 0)
-		CRASH_WITH_MSG("no script file given\n");
-	else if (commands.argc > 1)
-		CRASH_WITH_MSG("too many script files given\n");
+	else
+		CRASH_WITH_MSG("expected 1 script file, got %d\n", commands.argc);
+	
+	if (options->input_file == NULL)
+		options->input_file = stdin;
 		
 	if (options->namespaces[0] == NAMESPACE_NONE) {
 		static Wiktionary_namespace_t default_namespaces[] = {
@@ -153,14 +154,13 @@ static inline char * process_args (option_t * options,
 
 int main (int argc, const char * * argv) {
 	option_t options = {0};
-	Wiktionary_namespace_t namespaces[MAX_NAMESPACES];
+	Wiktionary_namespace_t namespaces[MAX_NAMESPACES] = { NAMESPACE_NONE };
 	lua_State * L;
 	char * script_file;
 	
 	options.namespaces = namespaces;
-	options.namespaces[0] = NAMESPACE_NONE;
 	
-	script_file = process_args(&options, argc, argv);
+	script_file = process_args(&options, argc, (char * *) argv);
 	
 	L = luaL_newstate();
 	luaL_openlibs(L);
@@ -173,11 +173,9 @@ int main (int argc, const char * * argv) {
 	if (lua_type(L, -1) != LUA_TFUNCTION)
 		CRASH_WITH_MSG("script did not return a function");
 		
-	parse_Wiktionary_page_dump(options.input_file != NULL
-	                           ? options.input_file
-	                           : stdin,
+	parse_Wiktionary_page_dump(options.input_file,
 	                           process_page,
-	                           namespaces,
+	                           options.namespaces,
 	                           L);
 	                           
 	lua_close(L);
