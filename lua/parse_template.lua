@@ -66,7 +66,7 @@ local function parse_template(str, pos)
 	local template, title, body = template_pattern:match(str, pos)
 	
 	if not template then
-		error("The pattern did not match the string " .. str .. ".")
+		error("The template pattern did not match the string " .. str:sub(pos) .. ".")
 	end
 	
 	local pos
@@ -88,7 +88,8 @@ local function parse_template(str, pos)
 		
 		if not value then
 			if (pos or 0) < #body then
-				io.stderr:write("parameter pattern didn't match after position ", pos, "\n")
+				io.stderr:write("parameter pattern didn't match after position ", pos,
+					": ", body:sub(pos) "\n")
 			end
 			break
 		else
