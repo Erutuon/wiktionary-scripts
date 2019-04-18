@@ -23,16 +23,62 @@ static inline str_slice_t str_slice_init (const char * str,
 	return slice;
 }
 
+/*
+Unicode whitespace:
+\x09 U+0009 (TAB)..\x0D U+000D (CR)
+\x20 U+0020 (SPACE)
+\xC2\x85 U+0085 (NEL)
+\xC2\xA0 U+00A0 (NO-BREAK SPACE)
+\xE1\x9A\x80 U+1680 (OGHAM SPACE MARK)
+\xE2\x80\x80 U+2000 (EN QUAD)..\xE2\x80\x8A U+200A (HAIR SPACE)
+\xE2\x80\xA8 U+2028 (LINE SEPARATOR)
+\xE2\x80\xA9 U+2029 (PARAGRAPH SEPARATOR)
+\xE2\x80\xAF U+202F (NARROW NO-BREAK SPACE)
+\xE2\x81\x9F U+205F (MEDIUM MATHEMATICAL SPACE)
+\xE3\x80\x80 U+3000 (IDEOGRAPHIC SPACE)
+*/
+
 static inline str_slice_t trim (const str_slice_t slice) {
-	const char * start = slice.str, * end = STR_SLICE_END(slice);
+	const unsigned char * start = (unsigned char *) slice.str,
+						* end = (unsigned char *) STR_SLICE_END(slice);
 	
-	while (start < STR_SLICE_END(slice) && isspace(*start))
-		++start;
+	while (1)
+		if (start < (unsigned char *) STR_SLICE_END(slice) && isspace(start[0]))
+			++start;
+		else if (start < (unsigned char *) STR_SLICE_END(slice) - 2
+				&& start[0] == 0xC2u && (start[1] == 0x85u || start[1] == 0xA0u))
+			start += 2;
+		else if (start < (unsigned char *) STR_SLICE_END(slice) - 3
+			&& ((start[0] == 0xE1u && start[1] == 0x9Au && start[2] == 0x80u)
+			|| (start[0] == 0xE2u
+				&& ((start[1] == 0x80u
+					&& ((0x80u <= start[2] && start[2] <= 0x8Au)
+					|| start[2] == 0xA8u || start[2] == 0xA9u || start[2] == 0xAFu))
+				|| (start[1] == 0x81u && start[2] == 0x9Fu)))
+			|| (start[0] == 0xE3u && start[1] == 0x80u && start[2] == 0x80u)))
+			start += 3;
+		else
+			break;
 		
-	while (end - 1 > slice.str && isspace(end[-1]))
-		--end;
+	while (1)
+		if (end > (unsigned char *) slice.str + 1 && isspace(end[-1]))
+			--end;
+		else if (end > (unsigned char *) slice.str + 2
+				&& (end[-2] == 0xC2u && (end[-1] == 0x85u || end[-1] == 0xA0u)))
+			end -= 2;
+		else if (end > (unsigned char *) slice.str + 3
+				&& ((end[-3] == 0xE1u && end[-2] == 0x9Au && end[-1] == 0x80u)
+				|| (end[-3] == 0xE2u
+					&& ((end[-2] == 0x80u
+						&& ((0x80u <= end[-1] && end[-1] <= 0x8Au)
+						|| end[-1] == 0xA8u || end[-1] == 0xA9u || end[-1] == 0xAFu))
+					|| (end[-2] == 0x81u && end[-1] == 0x9Fu)))
+				|| (end[-3] == 0xE3u && end[-2] == 0x80u && end[-1] == 0x80u)))
+			end -= 3;
+		else
+			break;
 		
-	return str_slice_init(start, end - start);
+	return str_slice_init((char *) start, end - start);
 }
 
 static inline bool str_slice_cpy (str_slice_t slice, char * dest, size_t dest_len) {
