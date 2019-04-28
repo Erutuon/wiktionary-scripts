@@ -1,0 +1,6 @@
+[submodule "commander"]
+	path = commander
+	url = https://github.com/clibs/commander
+[submodule "hat-trie"]
+	path = hat-trie
+	url = https://github.com/dcjones/hat-trie
