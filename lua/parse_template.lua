@@ -62,7 +62,7 @@ local function log_conflicts(parameters, conflicts, key, value)
 end
 
 local template_pattern = make_template_pattern(true)
-local function parse_template(str, pos)
+local function parse_template(str, pos, all_string_parameter_names)
 	local template, title, body = template_pattern:match(str, pos)
 	
 	if not template then
@@ -98,10 +98,18 @@ local function parse_template(str, pos)
 		
 		local key
 		if name then
-			key = tonumber(name) or name
+			key = name
+			
+			if not all_string_parameter_names then
+				key = tonumber(name) or name
+			end
 		else
 			i = i + 1
 			key = i
+			
+			if all_string_parameter_names then
+				key = tostring(key)
+			end
 		end
 			
 		log_conflicts(parameters, conflicts, key, value)
