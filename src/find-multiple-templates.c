@@ -12,6 +12,14 @@
 #include "utils/string_slice.h"
 #include "commander.h"
 
+#ifndef CHAR_BEFORE_TITLE
+#define CHAR_BEFORE_TITLE '\1'
+#endif
+
+#ifndef CHAR_BEFORE_TEMPLATE
+#define CHAR_BEFORE_TEMPLATE '\n'
+#endif
+
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define STATIC_LEN(str) (sizeof (str) - 1)
 #define CONTAINS_STR(a, b) (strstr((a), (b)) != NULL)
@@ -117,11 +125,11 @@ static inline void handle_template (const char * title,
 		*found = true;
 		
 		if (!GET_BIT_AT(*output_file_mask, bit_pos)) {
-			fprintf(output_file, "\1%s\n", title);
+			fprintf(output_file, "%c%s", CHAR_BEFORE_TITLE, title);
 			*output_file_mask = SET_BIT_AT(*output_file_mask, bit_pos, true);
 		}
 		
-		fprintf(output_file, "%.*s\n", (int) template.len, template.str);
+		fprintf(output_file, "%c%.*s", CHAR_BEFORE_TEMPLATE, (int) template.len, template.str);
 	}
 }
 
