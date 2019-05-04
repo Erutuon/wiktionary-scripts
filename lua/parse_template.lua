@@ -37,17 +37,19 @@ end
 
 local parameter_pattern = P {
 	P "|" * ((ws^0
-		* C((ws^0 * ((1 - (S "=|" + ws + V "not_in_params"))^1 + (V "template" + V "link")^1))^0)
+		* C((ws^0 * ((1 - (S "=|" + ws + V "not_in_params"))^1 + (V "template" + V "link" + V "ref")^1))^0)
 			* ws^0 * P "=" * ws^0
-			* C((ws^0 * ((1 - (P "|" + ws + V "not_in_params"))^1 + (V "template" + V "link")^1))^0)
+			* C((ws^0 * ((1 - (P "|" + ws + V "not_in_params"))^1 + (V "template" + V "link" + V "ref")^1))^0)
 			* ws^0)
 		+ Cc(nil)
-			* C(((1 - (P "|" + V "not_in_params"))^1 + (V "template" + V "link")^1)^0))
+			* C(((1 - (P "|" + V "not_in_params"))^1 + (V "template" + V "link" + V "ref")^1)^0))
 		* Cp(),
 	link = P "[["
 		* ((1 - (P "|" + P "[[" + P "]]" + P "{{" + P "}}"))^1 + V "template")^1
 		* (P "|" * (1 - (P "[[" + P "]]"))^1)^-1
 		* P "]]",
+	ref = P "<ref" * (V "attribute"^0 * P ">" * (1 - P "</ref>")^0 * P "</ref>" + P "/>"),
+	attribute = (ws^1 * R("az", "AZ")^1 * P "=" * (P '"' * (1 - P '"')^1 * P '"' + (1 - ws)^1)),
 	template = make_template_pattern(false),
 	not_in_params = P "{{" + P "}}" + P "[[",
 	
