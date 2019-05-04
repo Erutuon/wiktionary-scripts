@@ -51,17 +51,18 @@ local parameter_pattern = P {
 		* P "]]",
 	-- Assumes no nested tags with the same name!
 	html = V "br"
-		+ P "<" * Cg(R("az", "AZ")^1, "tag_name")
+		+ P "<" * Cg(V "html_identifier", "tag_name")
 		  * (ws^0 * V "attribute"^0 * ws^0 * P ">" * (1 - V "close_tag")^0 * V "close_tag")
 			 + ws^0 * "/>",
 	close_tag = P "</"
-		* Cmt(C(R("az", "AZ")^1) * Cb "tag_name",
+		* Cmt(C(V "html_identifier") * Cb "tag_name",
 			function (_, _, close, open)
 				return close == open
 			end)
 		* ws^0 * P ">",
 	br = P "<br" * ws^0 * P "/"^-1 * P">",
-	attribute = (R("az", "AZ")^1 * P "=" * (P '"' * (1 - P '"')^0 * P '"' + (1 - ws)^0)),
+	attribute = (V "html_identifier" * P "=" * (P '"' * (1 - P '"')^0 * P '"' + (1 - ws)^0)),
+	html_identifier = R("az", "AZ")^1,
 	template = make_template_pattern(false),
 	not_in_params = P "{{" + P "}}" + P "[[",
 	
