@@ -37,19 +37,31 @@ end
 
 local parameter_pattern = P {
 	P "|" * ((ws^0
-		* C((ws^0 * ((1 - (S "=|" + ws + V "not_in_params"))^1 + (V "template" + V "link" + V "ref")^1))^0)
+		* C((ws^0 * (V "constructions"^1 + (1 - (S "=|" + ws + V "not_in_params"))^1))^0)
 			* ws^0 * P "=" * ws^0
-			* C((ws^0 * ((1 - (P "|" + ws + V "not_in_params"))^1 + (V "template" + V "link" + V "ref")^1))^0)
+			* C((ws^0 * (V "constructions"^1 + (1 - (P "|" + ws + V "not_in_params"))^1))^0)
 			* ws^0)
 		+ Cc(nil)
-			* C(((1 - (P "|" + V "not_in_params"))^1 + (V "template" + V "link" + V "ref")^1)^0))
+			* C((V "constructions"^1 + (1 - (P "|" + V "not_in_params"))^1)^0))
 		* Cp(),
+	constructions = V "template" + V "link" + V "html",
 	link = P "[["
 		* ((1 - (P "|" + P "[[" + P "]]" + P "{{" + P "}}"))^1 + V "template")^1
 		* (P "|" * (1 - (P "[[" + P "]]"))^1)^-1
 		* P "]]",
-	ref = P "<ref" * (V "attribute"^0 * P ">" * (1 - P "</ref>")^0 * P "</ref>" + ws^0 * P "/>"),
-	attribute = (ws^1 * R("az", "AZ")^1 * P "=" * (P '"' * (1 - P '"')^1 * P '"' + (1 - ws)^1)),
+	-- Assumes no nested tags with the same name!
+	html = V "br"
+		+ P "<" * Cg(R("az", "AZ")^1, "tag_name")
+		  * (ws^0 * V "attribute"^0 * ws^0 * P ">" * (1 - V "close_tag")^0 * V "close_tag")
+			 + ws^0 * "/>",
+	close_tag = P "</"
+		* Cmt(C(R("az", "AZ")^1) * Cb "tag_name",
+			function (_, _, close, open)
+				return close == open
+			end)
+		* ws^0 * P ">",
+	br = P "<br" * ws^0 * P "/"^-1 * P">",
+	attribute = (R("az", "AZ")^1 * P "=" * (P '"' * (1 - P '"')^0 * P '"' + (1 - ws)^0)),
 	template = make_template_pattern(false),
 	not_in_params = P "{{" + P "}}" + P "[[",
 	
