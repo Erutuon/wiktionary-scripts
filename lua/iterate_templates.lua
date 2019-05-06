@@ -39,7 +39,7 @@ local function iterate_links(content, title_start, template_start, template_iter
 	local template_iterator = template_iterator
 		or iterate_templates(content, title_start, template_start)
 	
-	return function ()
+	return coroutine.wrap(function ()
 		for template, title in template_iterator do
 			local language_code, link_target
 			if link_template_names[template.name] then
@@ -51,10 +51,10 @@ local function iterate_links(content, title_start, template_start, template_iter
 			end
 			
 			if language_code and link_target then
-				return language_code, link_target, title, template
+				coroutine.yield(language_code, link_target, title, template)
 			end
 		end
-	end
+	end)
 end
 
 return { iterate_templates = iterate_templates, iterate_links = iterate_links }
