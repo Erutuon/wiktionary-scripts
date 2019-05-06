@@ -36,6 +36,11 @@ local derivation_template_names = list_to_set {
 	"learned borrowing", "cal", "calq", "calque", "clq",
 }
 
+local affix_template_names = list_to_set {
+	"af", "affix", "circumfix", "compound", "confix", "pref", "prefix",
+	"suf", "suffix",
+}
+
 local function iterate_links(content, title_start, template_start, template_iterator)
 	local template_iterator = template_iterator
 		or iterate_templates(content, title_start, template_start)
@@ -43,12 +48,18 @@ local function iterate_links(content, title_start, template_start, template_iter
 	return coroutine.wrap(function ()
 		for template, title in template_iterator do
 			local language_code, link_target
-			if link_template_names[template.name] then
-				language_code = template.parameters[1]
-				link_target = template.parameters[2]
-			elseif derivation_template_names[template.name] then
-				language_code = template.parameters[2]
-				link_target = template.parameters[3]
+			local name, parameters = template.name, template.parameters
+			if link_template_names[name] then
+				language_code = parameters[1]
+				link_target = parameters[2]
+			elseif derivation_template_names[name] then
+				language_code = parameters[2]
+				link_target = parameters[3]
+			elseif affix_template_names[name] then
+				language_code = parameters.lang or parameters[1]
+				for _, link_target in ipairs(parameters), parameters, (parameters.lang and 1 or 2) - 1 do
+					coroutine.yield(language_code, link_target, title, template)
+				end
 			end
 			
 			if language_code and link_target then
