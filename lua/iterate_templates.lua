@@ -57,8 +57,12 @@ local function iterate_links(content, title_start, template_start, template_iter
 				link_target = parameters[3]
 			elseif affix_template_names[name] then
 				language_code = parameters.lang or parameters[1]
-				for _, link_target in ipairs(parameters), parameters, (parameters.lang and 1 or 2) - 1 do
-					coroutine.yield(language_code, link_target, title, template)
+				for i, link_target in ipairs(parameters), parameters, (parameters.lang and 1 or 2) - 1 do
+					local language_code_for_part = parameters["lang" .. (parameters.lang and i or i - 1)]
+					if language_code_for_part == "" then
+						language_code_for_part = nil
+					end
+					coroutine.yield(language_code_for_part or language_code, link_target, title, template)
 				end
 			end
 			
