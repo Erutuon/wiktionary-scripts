@@ -25,14 +25,15 @@ local list_to_set = require "Module:table".listToSet
 -- Templates in which the language code is in the first parameter
 -- and the link target in the second.
 local link_template_names = list_to_set {
-	"m", "l", "t", "t+", "cog", "cognate", "ncog", "noncognate"
+	"m", "m-self", "m+", "langname-mention", "l", "l-self", "ll", "t", "t+", "cog", "cognate", "ncog",
+	"noncognate"
 }
 
 -- Templates in which the language code is in the second parameter
 -- and the link target in the third.
 local derivation_template_names = list_to_set {
-	"der", "derived", "inh", "inherited", "bor", "borrowed",
-	"cal", "calq", "calque", "clq",
+	"der", "derived", "inh", "inherited", "bor", "borrowed", "lbor",
+	"learned borrowing", "cal", "calq", "calque", "clq",
 }
 
 local function iterate_links(content, title_start, template_start, template_iterator)
