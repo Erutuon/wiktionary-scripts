@@ -37,7 +37,7 @@ static bool process_page (parse_info * info) {
 	lua_pushstring(L, namespace_name);
 	
 	if (lua_pcall(L, 3, 1, 0) != LUA_OK) {
-		print_Lua_error(L, "error while calling function");
+		print_Lua_error(L, "error while calling function\n");
 		exit(EXIT_FAILURE);
 	}
 	
@@ -73,7 +73,7 @@ static inline void add_namespaces (command_t * commands) {
 	const char * arg = commands->arg;
 	
 	if (namespaces[0] != NAMESPACE_NONE)
-		CRASH_WITH_MSG("cannot supply namespaces twice");
+		CRASH_WITH_MSG("cannot supply namespaces twice\n");
 		
 	if (strcmp(arg, "all") == 0) // Search all namespaces.
 		return;
@@ -171,7 +171,7 @@ int main (int argc, const char * * argv) {
 	}
 	
 	if (lua_type(L, -1) != LUA_TFUNCTION)
-		CRASH_WITH_MSG("script did not return a function");
+		CRASH_WITH_MSG("script did not return a function\n");
 		
 	parse_Wiktionary_page_dump(options.input_file,
 	                           process_page,
