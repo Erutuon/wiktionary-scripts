@@ -6,6 +6,7 @@ local function iterate_templates(content, title_start, template_start)
 	local title_and_text_pattern =
 		title_start .. '(.-)(' .. template_start .. '.-)%f[' .. title_start .. '\0]'
 	local template_start_pattern = template_start .. '(){{'
+	local count = 0
 	
 	return coroutine.wrap(function ()
 		for title, text in content:gmatch(title_and_text_pattern) do
@@ -13,6 +14,8 @@ local function iterate_templates(content, title_start, template_start)
 				local success, template = pcall(parse_template, text, pos)
 				
 				if success then
+					count = count + 1
+					template.count = count
 					coroutine.yield(template, title)
 				end
 			end
@@ -52,6 +55,7 @@ end
 local function iterate_links(content, title_start, template_start, template_iterator)
 	local template_iterator = template_iterator
 		or iterate_templates(content, title_start, template_start)
+	local count = 0
 	
 	return coroutine.wrap(function ()
 		for template, title in template_iterator do
@@ -60,45 +64,44 @@ local function iterate_links(content, title_start, template_start, template_iter
 				local language_code = parameters.lang or parameters[1]
 				for i, link_target in ipairs(parameters), parameters, (parameters.lang and 1 or 2) - 1 do
 					local list_parameter_index = parameters.lang and i or i - 1
-					local language_code_for_part = if_not_empty(parameters["lang" .. list_parameter_index])
-					local link_text = if_not_empty(parameters["alt" .. list_parameter_index])
-					local sense_id = if_not_empty(parameters["id" .. list_parameter_index])
 					local link = {
-						lang = language_code_for_part or language_code,
+						lang = if_not_empty(parameters["lang" .. list_parameter_index]) or language_code,
 						term = link_target,
-						alt = link_text,
-						id = sense_id,
+						alt = if_not_empty(parameters["alt" .. list_parameter_index]),
+						id = if_not_empty(parameters["id" .. list_parameter_index]),
 					}
+					count = count + 1
+					link.count = count
 					coroutine.yield(link, title, template)
 				end
 			else
-				local language_code, link_target, link_text, sense_id
+				local link
 				if link_template_names[name] then
-					language_code = parameters[1]
-					link_target = parameters[2]
+					link = {
+						lang = parameters[1],
+						term = parameters[2],
+						id = if_not_empty(parameters.id)
+					}
 					if name == "t" or name == "t+" then
 						-- Here parameter 3 is gender.
-						link_text = if_not_empty(parameters.alt)
+						link.alt = if_not_empty(parameters.alt)
 					else
 						-- Some templates, like {{l}} and {{m}} do not use the alt parameter,
 						-- but it doesn't hurt to test for it.
-						link_text = if_not_empty(parameters[3]) or if_not_empty(parameters.alt)
+						link.alt = if_not_empty(parameters[3]) or if_not_empty(parameters.alt)
 					end
-					sense_id = if_not_empty(parameters.id)
 				elseif derivation_template_names[name] then
-					language_code = parameters[2]
-					link_target = parameters[3]
-					link_text = if_not_empty(parameters[4]) or if_not_empty(parameters.alt)
-					sense_id = if_not_empty(parameters.id)
+					link = {
+						lang = parameters[2],
+						term = parameters[3],
+						alt = if_not_empty(parameters[4]) or if_not_empty(parameters.alt),
+						id = if_not_empty(parameters.id)
+					}
 				end
 				
-				if language_code and link_target then
-					local link = {
-						lang = language_code,
-						term = link_target,
-						alt = link_text,
-						id = sense_id,
-					}
+				if link then
+					count = count + 1
+					link.count = count
 					coroutine.yield(link, title, template)
 				end
 			end
