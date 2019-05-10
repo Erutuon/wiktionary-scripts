@@ -50,7 +50,11 @@
 // and is set with STORE_IN_PTR, gotten with GET_STORED_VAL, and removed
 // by GET_PTR_VAL (so that the pointer can be safely dereferenced).
 // https://stackoverflow.com/questions/16198700/using-the-extra-16-bits-in-64-bit-pointers
-typedef uint64_t output_file_mask_t;
+#ifndef __SIZEOF_INT128__
+#error "128-bit integer is required"
+#endif
+
+typedef unsigned __int128 output_file_mask_t;
 static uint16_t output_file_bit_index = 0;
 
 #define MAX_OUTPUT_FILES (sizeof (output_file_mask_t) * CHAR_BITS)
