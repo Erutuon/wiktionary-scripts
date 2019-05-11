@@ -1,0 +1,17 @@
+ar-verb	ar-verb.txt
+descendants tree	desctree.txt
+desctree	desctree.txt
+etyl	etyl.txt
+given name	given_name.txt
+grc-adecl	grc-adecl.txt
+grc-conj	grc-conj.txt
+grc-decl	grc-decl.txt
+inflection of	inflection_of.txt
+IPA	IPA.txt
+la-conj	la-conj.txt
+reflist	reflist.txt
+senseid	senseid.txt
+surname	surname.txt
+taxon	taxon.txt
+w2	w2.txt
+w	w.txt

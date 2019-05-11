@@ -1,0 +1,91 @@
+af	affix.txt
+affix	affix.txt
+ant	antonyms.txt
+antonyms	antonyms.txt
+back-formation	back-formation.txt
+back-form	back-formation.txt
+bf	back-formation.txt
+blend	blend.txt
+blend of	blend.txt
+bor	borrowed.txt
+borrowed	borrowed.txt
+cal	calque.txt
+calq	calque.txt
+calque	calque.txt
+circumfix	circumfix.txt
+clipping	clipping.txt
+clq	calque.txt
+cog	cognate.txt
+cognate	cognate.txt
+col1	col1.txt
+col2	col2.txt
+col3	col3.txt
+col4	col4.txt
+col5	col5.txt
+compound	compound.txt
+confix	confix.txt
+coordinate terms	coordinate_terms.txt
+cot	coordinate_terms.txt
+der2	col2.txt
+der3	col3.txt
+der4	col4.txt
+der5	col5.txt
+der	derived.txt
+derived	derived.txt
+desc	desc.txt
+descendant	desc.txt
+deverbal	deverbal.txt
+doublet	doublet.txt
+holonyms	holonyms.txt
+hyper	hypernyms.txt
+hypernyms	hypernyms.txt
+hypo	hyponyms.txt
+hyponyms	hyponyms.txt
+imperfectives	imperfectives.txt
+impf	imperfectives.txt
+inherited	inherited.txt
+inh	inherited.txt
+langname-mention	langname-mention.txt
+lbor	learned_borrowing.txt
+learned borrowing	learned_borrowing.txt
+link	l.txt
+ll	ll.txt
+l	l.txt
+loan translation	calque.txt
+l-self	l-self.txt
+mention	m.txt
+meronyms	meronyms.txt
+m+	langname-mention.txt
+m	m.txt
+m-self	m-self.txt
+ncog	noncognate.txt
+noncognate	noncognate.txt
+obor	orthographic_borrowing.txt
+orthographic borrowing	orthographic_borrowing.txt
+perfectives	perfectives.txt
+pf	perfectives.txt
+phono-semantic matching	phono-semantic_matching.txt
+PIE root	PIE_root.txt
+PIE word	PIE_word.txt
+prefix	prefix.txt
+pref	prefix.txt
+psm	phono-semantic_matching.txt
+rebracketing	rebracketing.txt
+rel2	col2.txt
+rel3	col3.txt
+rel4	col4.txt
+rel5	col5.txt
+semantic loan	semantic_loan.txt
+suffix	suffix.txt
+suf	suffix.txt
+synonyms	synonyms.txt
+syn	synonyms.txt
+t-check	t-check.txt
+th-der	th-der.txt
+transliteration	transliteration.txt
+troponyms	troponyms.txt
+t-simple	t-simple.txt
+t+	t+.txt
+t	t.txt
+vi-der	vi-der.txt
+zh-der	zh-der.txt
