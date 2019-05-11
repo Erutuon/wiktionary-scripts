@@ -4,3 +4,6 @@
 [submodule "hat-trie"]
 	path = hat-trie
 	url = https://github.com/dcjones/hat-trie
+[submodule "luarure"]
+	path = luarure
+	url = https://github.com/Erutuon/luarure.git
