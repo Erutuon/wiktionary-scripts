@@ -70,8 +70,26 @@ local function iterate_links(content, title_start, template_start, template_iter
 						alt = if_not_empty(parameters["alt" .. list_parameter_index]),
 						id = if_not_empty(parameters["id" .. list_parameter_index]),
 					}
+					
+					-- This only works for languages that use hyphen to indicate an affix,
+					-- and for non-reconstructed suffixes. Need more complex rules for
+					-- Arabic and reconstructed languages.
+					-- The suffix, prefix, and confix templates don't use the lang parameter.
+					if name == "suffix" and i >= 3 then
+						link.term = "-" .. link.term
+					elseif name == "prefix" and if_not_empty(parameters[i + 1]) then
+						link.term = link.term .. "-"
+					elseif name == "confix" then
+						if i == 2 then
+							link.term = "-" .. link.term
+						elseif i == #parameters then
+							link.term = link.term .. "-"
+						end
+					end
+					
 					count = count + 1
 					link.count = count
+					
 					coroutine.yield(link, title, template)
 				end
 			else
