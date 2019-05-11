@@ -7,3 +7,6 @@
 [submodule "luarure"]
 	path = luarure
 	url = https://github.com/Erutuon/luarure.git
+[submodule "lutf8proc"]
+	path = lutf8proc
+	url = https://github.com/Erutuon/lutf8proc
