@@ -1,7 +1,3 @@
--- to remove:
--- {{suffix|grc|ᾰ̓ρχή|t1=rule”, “government|ης}}
--- {{m|grc|Α||alpha}}
-
 local iter = require "iterate_templates"
 
 local rure = require "luarure"
@@ -13,7 +9,7 @@ local regex = rure.new([[
 	|[αεηοω]υ
 	|[αεηιουω])
 		[\u{0304}\u{0306}]?
-			(?:[^αεηιουω\u{0304}\u{0306}\u{0313}\u{0314}]
+			(?:[^ιυ\u{0304}\u{0306}\u{0313}\u{0314}]
 			|\b)
 )
 ]], "casei", "unicode", "space")
@@ -57,9 +53,8 @@ local function case_insensitive_comp(a, b)
 	end
 end
 
+local cjson = require "cjson"
+
 for title, templates in require "mediawiki.table".sortedPairs(title_to_templates, case_insensitive_comp) do
-	print("; [[" .. title .. "]]")
-	for _, template in templates:ipairs() do
-		print("<pre><nowiki>" .. template .. "</nowiki></pre>")
-	end
+	print(cjson.encode { title = title, templates = templates })
 end
