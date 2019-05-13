@@ -81,9 +81,9 @@ local function iterate_links(content, title_start, template_start, template_iter
 						link.term = link.term .. "-"
 					elseif name == "confix" then
 						if i == 2 then
-							link.term = "-" .. link.term
-						elseif i == #parameters then
 							link.term = link.term .. "-"
+						elseif i == #parameters then
+							link.term = "-" .. link.term
 						end
 					end
 					
