@@ -13,6 +13,9 @@ bin*
 # random stuff
 sandbox*
 templates
+!templates/Makefile
+!templates/link_templates.txt
+!templates/other_templates.txt
 
 # not yet integrated into Makefile
 examples*

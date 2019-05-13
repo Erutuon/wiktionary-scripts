@@ -10,6 +10,9 @@ inflection of	inflection_of.txt
 IPA	IPA.txt
 la-conj	la-conj.txt
 reflist	reflist.txt
+rhymes	rhymes.txt
+rhyme	rhymes.txt
+Rhymes	rhymes.txt
 senseid	senseid.txt
 surname	surname.txt
 taxon	taxon.txt
