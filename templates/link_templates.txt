@@ -23,6 +23,7 @@ col3	col3.txt
 col4	col4.txt
 col5	col5.txt
 compound	compound.txt
+con	confix.txt
 confix	confix.txt
 coordinate terms	coordinate_terms.txt
 cot	coordinate_terms.txt
@@ -58,7 +59,9 @@ meronyms	meronyms.txt
 m+	langname-mention.txt
 m	m.txt
 m-self	m-self.txt
+nc	noncognate.txt
 ncog	noncognate.txt
+noncog	noncognate.txt
 noncognate	noncognate.txt
 obor	orthographic_borrowing.txt
 orthographic borrowing	orthographic_borrowing.txt
