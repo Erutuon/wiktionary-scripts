@@ -75,11 +75,11 @@ local function iterate_links(content, title_start, template_start, template_iter
 					-- and for non-reconstructed suffixes. Need more complex rules for
 					-- Arabic and reconstructed languages.
 					-- The suffix, prefix, and confix templates don't use the lang parameter.
-					if name == "suffix" and i >= 3 then
+					if (name == "suffix" or name == "suf") and i >= 2 then
 						link.term = "-" .. link.term
-					elseif name == "prefix" and if_not_empty(parameters[i + 1]) then
+					elseif (name == "prefix" or name == "pref") and if_not_empty(parameters[i + 1]) then
 						link.term = link.term .. "-"
-					elseif name == "confix" then
+					elseif name == "confix" or name == "con" then
 						if i == 2 then
 							link.term = link.term .. "-"
 						elseif i == #parameters then
