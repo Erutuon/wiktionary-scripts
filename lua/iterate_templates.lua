@@ -30,20 +30,48 @@ local list_to_set = require "Module:table".listToSet
 -- Templates in which the language code is in the first parameter
 -- and the link target in the second.
 local link_template_names = list_to_set {
-	"m", "m-self", "m+", "langname-mention", "l", "l-self", "ll", "t", "t+", "cog", "cognate", "ncog",
-	"noncognate"
+	"back-formation", "back-form", "bf",
+	"clipping",
+	"cognate", "cog",
+	"descendant", "desc",
+	"deverbal",
+	"l", "link",
+	"l-self",
+	"langname-mention", "m+",
+	"ll",
+	"m", "mention",
+	"m-self",
+	"noncognate", "ncog", "nc",
+	"rebracketing",
+	"semantic loan", "sl",
+	"t",
+	"t+",
+	"t-check",
 }
 
 -- Templates in which the language code is in the second parameter
 -- and the link target in the third.
-local derivation_template_names = list_to_set {
-	"der", "derived", "inh", "inherited", "bor", "borrowed", "lbor",
-	"learned borrowing", "cal", "calq", "calque", "clq",
+local foreign_derivation_template_names = list_to_set {
+	"borrowed", "bor",
+	"calque", "cal", "calq", "clq", "loan translation",
+	"derived", "der",
+	"inherited", "inh",
+	"learned borrowing", "lbor",
+	"orthographic borrowing", "obor",
+	"phono-semantic matching", "psm",
+	"transliteration", "translit",
 }
 
-local affix_template_names = list_to_set {
-	"af", "affix", "circumfix", "compound", "confix", "pref", "prefix",
-	"suf", "suffix",
+-- Templates that have multiple links and numbered parameters for alt and id.
+local multiple_link_template_names = list_to_set {
+	"affix", "af",
+	"blend", "blend of",
+	"circumfix",
+	"compound",
+	"confix",
+	"doublet",
+	"prefix", "pref",
+	"suffix", "suf",
 }
 
 local semantic_relation_template_names = list_to_set {
@@ -73,7 +101,7 @@ local function iterate_links(content, title_start, template_start, template_iter
 	return coroutine.wrap(function ()
 		for template, title in template_iterator do
 			local name, parameters = template.name, template.parameters
-			if affix_template_names[name] then
+			if multiple_link_template_names[name] then
 				local language_code = parameters.lang or parameters[1]
 				for i, link_target in ipairs(parameters), parameters, (parameters.lang and 1 or 2) - 1 do
 					local list_parameter_index = parameters.lang and i or i - 1
@@ -134,7 +162,7 @@ local function iterate_links(content, title_start, template_start, template_iter
 						-- but it doesn't hurt to test for it.
 						link.alt = if_not_empty(parameters[3]) or if_not_empty(parameters.alt)
 					end
-				elseif derivation_template_names[name] then
+				elseif foreign_derivation_template_names[name] then
 					link = {
 						lang = parameters[2],
 						term = parameters[3],
