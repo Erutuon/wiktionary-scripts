@@ -46,6 +46,19 @@ local affix_template_names = list_to_set {
 	"suf", "suffix",
 }
 
+local semantic_relation_template_names = list_to_set {
+	"antonyms", "antonym", "ant",
+	"coordinate terms", "cot",
+	"holonyms",
+	"hypernyms", "hyper",
+	"hyponyms", "hypo",
+	"imperfectives", "impf",
+	"meronyms",
+	"perfectives", "pf",
+	"synonyms", "syn",
+	"troponyms",
+}
+
 local function if_not_empty(val)
 	if val ~= "" then
 		return val
@@ -91,6 +104,19 @@ local function iterate_links(content, title_start, template_start, template_iter
 					link.count = count
 					
 					coroutine.yield(link, title, template)
+				end
+			elseif semantic_relation_template_names[name] then
+				local lang = parameters[1]
+				local i = 2
+				while parameters[i] and not parameters[i]:find "^Thesaurus:" do
+					local link = {
+						lang = lang,
+						term = if_not_empty(parameters[i]),
+						alt = if_not_empty(parameters["alt" .. i]),
+						id = if_not_empty(parameters["id" .. i]),
+					}
+					coroutine.yield(link, title, template)
+					i = i + 1
 				end
 			else
 				local link
