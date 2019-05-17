@@ -20,24 +20,13 @@ local find_doublet_list = P {
 }
 
 local function print_matches(matches)
-	local utf8proc = require "lutf8proc"
-	
-	local function casefold(str)
-		return utf8proc.map(str, "casefold")
-	end
-	
 	local cjson = require "cjson"
 	
+	local comp = require "casefold".comp
 	table.sort(
 		matches,
 		function (a, b)
-			local casefolded_a, casefolded_b =
-				casefold(a.title), casefold(b.title)
-			if casefolded_a ~= casefolded_b then
-				return casefolded_a < casefolded_b
-			else
-				return a.title < b.title
-			end
+			return comp(a.title, b.title)
 		end)
 	
 	for _, data in ipairs(matches) do

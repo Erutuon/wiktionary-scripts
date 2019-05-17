@@ -14,8 +14,7 @@ local regex = rure.new([[
 )
 ]], "casei", "unicode", "space")
 
-local utf8proc = require "lutf8proc"
-local decompose = utf8proc.decomp
+local decompose = require "lutf8proc".decomp
 
 local count = 0
 local max = math.huge
@@ -39,19 +38,7 @@ for link, title, template in iter.iterate_links(io.read 'a') do
 	end
 end
 
-local utf8proc_map = utf8proc.map
-local function casefold(str)
-	return utf8proc_map(str, "casefold")
-end
-
-local function case_insensitive_comp(a, b)
-	local casefolded_a, casefolded_b = casefold(a), casefold(b)
-	if casefolded_a ~= casefolded_b then
-		return casefolded_a < casefolded_b
-	else
-		return a < b
-	end
-end
+local case_insensitive_comp = require "casefold".comp
 
 local cjson = require "cjson"
 
