@@ -99,28 +99,25 @@ static inline void add_namespaces (command_t * commands) {
 		        commands->arg);
 }
 
-static inline char * process_args (option_t * options,
-                                   int argc,
+static void process_args (command_t * commands,
+                                   option_t * options,
+								   int argc,
                                    char * * argv) {
-	command_t commands;
-	command_init(&commands, argv[0], "0");
-	commands.data = options;
-	char * script_file;
+	command_init(commands, argv[0], "0");
+	commands->data = options;
 	
-	command_option(&commands, "-i", "--input <file>",
+	command_option(commands, "-i", "--input <file>",
 	               "XML page dump file",
 	               get_input_file);
 	               
-	command_option(&commands, "-n", "--namespaces <numbers>",
+	command_option(commands, "-n", "--namespaces <numbers>",
 	               "list of namespace numbers",
 	               add_namespaces);
 	               
-	command_parse(&commands, argc, argv);
+	command_parse(commands, argc, argv);
 	
-	if (commands.argc == 1)
-		script_file = strdup(commands.argv[0]);
-	else
-		CRASH_WITH_MSG("expected 1 script file, got %d\n", commands.argc);
+	if (commands->argc < 1)
+		CRASH_WITH_MSG("expected a script file\n");
 	
 	if (options->input_file == NULL)
 		options->input_file = stdin;
@@ -146,26 +143,33 @@ static inline char * process_args (option_t * options,
 	}
 	
 	putc('\n', stderr);
-	
-	command_free(&commands);
-	
-	return script_file;
 }
 
 int main (int argc, const char * * argv) {
 	option_t options = {0};
 	Wiktionary_namespace_t namespaces[MAX_NAMESPACES] = { NAMESPACE_NONE };
+	command_t commands;
 	lua_State * L;
-	char * script_file;
 	
 	options.namespaces = namespaces;
 	
-	script_file = process_args(&options, argc, (char * *) argv);
+	process_args(&commands, &options, argc, (char * *) argv);
 	
 	L = luaL_newstate();
 	luaL_openlibs(L);
 	
-	if (luaL_dofile(L, script_file) != LUA_OK) {
+	if (luaL_loadfile(L, commands.argv[0]) != LUA_OK) {
+		print_Lua_error(L, "error while loading script");
+		exit(EXIT_FAILURE);
+	}
+	
+	for (int i = 1; i < commands.argc; ++i) {
+		lua_pushstring(L, commands.argv[i]);
+	}
+	
+	command_free(&commands);
+	
+	if (lua_pcall(L, commands.argc - 1, 1, 0) != LUA_OK) {
 		print_Lua_error(L, "error while running script");
 		exit(EXIT_FAILURE);
 	}
@@ -179,8 +183,6 @@ int main (int argc, const char * * argv) {
 	                           L);
 	                           
 	lua_close(L);
-	
-	free(script_file);
 	
 	return 0;
 }
