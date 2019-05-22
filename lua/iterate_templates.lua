@@ -74,6 +74,8 @@ local multiple_link_template_names = list_to_set {
 	"suffix", "suf",
 }
 
+-- The same as the above, except that there may be a series of Thesaurus links
+-- at the end of the numbered parameters, which should be ignored.
 local semantic_relation_template_names = list_to_set {
 	"antonyms", "antonym", "ant",
 	"coordinate terms", "cot",
@@ -102,7 +104,7 @@ local function iterate_links(content, title_start, template_start, template_iter
 		for template, title in template_iterator do
 			local name, parameters = template.name, template.parameters
 			if multiple_link_template_names[name] then
-				local language_code = parameters.lang or parameters[1]
+				local language_code = if_not_empty(parameters.lang) or if_not_empty(parameters[1])
 				for i, link_target in ipairs(parameters), parameters, (parameters.lang and 1 or 2) - 1 do
 					local list_parameter_index = parameters.lang and i or i - 1
 					local link = {
@@ -116,7 +118,7 @@ local function iterate_links(content, title_start, template_start, template_iter
 					-- and for non-reconstructed suffixes. Need more complex rules for
 					-- Arabic and reconstructed languages.
 					-- The suffix, prefix, and confix templates don't use the lang parameter.
-					if (name == "suffix" or name == "suf") and i >= 2 then
+					if (name == "suffix" or name == "suf") and i >= 3 then
 						link.term = "-" .. link.term
 					elseif (name == "prefix" or name == "pref") and if_not_empty(parameters[i + 1]) then
 						link.term = link.term .. "-"
@@ -136,13 +138,18 @@ local function iterate_links(content, title_start, template_start, template_iter
 			elseif semantic_relation_template_names[name] then
 				local lang = parameters[1]
 				local i = 2
-				while parameters[i] and not parameters[i]:find "^Thesaurus:" do
+				while (parameters[i] or parameters["alt" .. i] or parameters["id" .. i])
+				and not (parameters[i] and parameters[i]:find "^Thesaurus:") do
 					local link = {
 						lang = lang,
 						term = if_not_empty(parameters[i]),
 						alt = if_not_empty(parameters["alt" .. i]),
 						id = if_not_empty(parameters["id" .. i]),
 					}
+					
+					count = count + 1
+					link.count = count
+					
 					coroutine.yield(link, title, template)
 					i = i + 1
 				end
