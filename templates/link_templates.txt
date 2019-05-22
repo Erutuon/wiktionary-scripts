@@ -85,6 +85,7 @@ synonyms	synonyms.txt
 syn	synonyms.txt
 t-check	t-check.txt
 th-der	th-der.txt
+translit	transliteration.txt
 transliteration	transliteration.txt
 troponyms	troponyms.txt
 t-simple	t-simple.txt

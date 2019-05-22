@@ -1,3 +1,5 @@
+also	also.txt
+also see	also.txt
 ar-verb	ar-verb.txt
 descendants tree	desctree.txt
 desctree	desctree.txt
@@ -6,6 +8,7 @@ given name	given_name.txt
 grc-adecl	grc-adecl.txt
 grc-conj	grc-conj.txt
 grc-decl	grc-decl.txt
+ine-root	ine-root.txt
 inflection of	inflection_of.txt
 IPA	IPA.txt
 la-conj	la-conj.txt
@@ -13,8 +16,13 @@ reflist	reflist.txt
 rhymes	rhymes.txt
 rhyme	rhymes.txt
 Rhymes	rhymes.txt
+see	also.txt
+See also	also.txt
+see also	also.txt
 senseid	senseid.txt
 surname	surname.txt
 taxon	taxon.txt
 w2	w2.txt
 w	w.txt
+xalso	also.txt
+xsee	also.txt

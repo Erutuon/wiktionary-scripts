@@ -10,7 +10,6 @@ local header_pattern = P {
 			* Cs((P "="^0 * (((1 - (S "\n=" + P "<!--"))^1 + V "comment" / "")^1 - V "after_header"))^0)
 			* C(P "="^1))
 			/ function (start_equals, inner, end_equals)
-					-- print("start_equals", start_equals, "inner", inner, "end_equals", end_equals)
 					local header_level = math.min(#start_equals, #end_equals)
 					local header_content = inner
 					
@@ -20,26 +19,15 @@ local header_pattern = P {
 						header_content = ("="):rep(#start_equals - header_level) .. header_content
 					end
 					
-					-- if #inner == 0 then if #start_equals > 1 and #end_equals > 1 then
-					
 					return header_level, header_content
 				end
 		+ C(P "="^3)
 			/ function (equals)
 				local header_level = #equals // 2
-				local header_content = ("="):rep(#equals % 2 == 0 and 2 or 1)
+				local header_content = ("="):rep((#equals - 1) % 2 + 1)
 				return header_level, header_content
 			end)
 		* V "after_header"),
-		--[[
-		* Cmt(C(P "="^1) * C(P "="^0 * (V "comment" + (1 - (P "=" + P "<!--")))^1) * C(P "="^1, "last_equals"),
-			function (_, _, equals1, inner, equals2)
-				print("equals1", equals1, "inner", inner, "equals2", equals2)
-				local header_level = math.min(#equals1, #equals2)
-				local header_content = inner:sub(1, -#equals2)
-				return true, header_level, header_content
-			end),
-		--]]
 	after_header = (S " \t"^1 + V "comment")^0 * #(P "\n" + P(-1)),
 	comment = P "<!--" * (1 - P "-->")^0 * P "-->",
 	nowiki = P "<nowiki" * (ws^0 * (P ">" * (1 - V "close_nowiki")^0 * V "close_nowiki" + P "/>")),
@@ -53,6 +41,8 @@ if ... == "test" then
 		{ "===equals in header === ===", 3, "equals in header === " },
 		{ "===", 1, "=" },
 		{ "====", 2, "==" },
+		{ "=====", 2, "=" },
+		{ "======", 3, "==" },
 		{ "==comment in header<!-- -->==", 2, "comment in header" },
 		{ "==comment after header==<!--\n\n-->  ", 2, "comment after header" },
 		{ "<!--\n==header in comment\n-->", nil, nil },
