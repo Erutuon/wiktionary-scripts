@@ -13,7 +13,7 @@ typedef struct {
 	Wiktionary_namespace_t * namespaces;
 } option_t;
 
-static void print_Lua_error(lua_State * L, const char * msg) {
+static void print_Lua_error_and_crash(lua_State * L, const char * msg) {
 	EPRINTF("%s", msg);
 	
 	if (lua_type(L, -1) == LUA_TSTRING) {
@@ -22,6 +22,9 @@ static void print_Lua_error(lua_State * L, const char * msg) {
 	}
 	
 	EPRINTF("\n");
+	
+	lua_close(L);
+	exit(EXIT_FAILURE);
 }
 
 static bool process_page (parse_info * info) {
@@ -36,10 +39,8 @@ static bool process_page (parse_info * info) {
 	lua_pushstring(L, page.title);
 	lua_pushstring(L, namespace_name);
 	
-	if (lua_pcall(L, 3, 1, 0) != LUA_OK) {
-		print_Lua_error(L, "error while calling function\n");
-		exit(EXIT_FAILURE);
-	}
+	if (lua_pcall(L, 3, 1, 0) != LUA_OK)
+		print_Lua_error_and_crash(L, "error while calling function\n");
 	
 	if (lua_type(L, -1) != LUA_TBOOLEAN)
 		CRASH_WITH_MSG("function did not return a boolean\n");
@@ -54,7 +55,7 @@ static bool process_page (parse_info * info) {
 
 #define CHECK_FILE(file) \
 	if ((file) == NULL) \
-		perror("could not open file"), exit(-1)
+		perror("could not open file"), exit(EXIT_FAILURE)
 
 static inline void get_input_file (command_t * commands) {
 	option_t * options = commands->data;
@@ -158,21 +159,16 @@ int main (int argc, const char * * argv) {
 	L = luaL_newstate();
 	luaL_openlibs(L);
 	
-	if (luaL_loadfile(L, commands.argv[0]) != LUA_OK) {
-		print_Lua_error(L, "error while loading script");
-		exit(EXIT_FAILURE);
-	}
+	if (luaL_loadfile(L, commands.argv[0]) != LUA_OK)
+		print_Lua_error_and_crash(L, "error while loading script");
 	
-	for (int i = 1; i < commands.argc; ++i) {
+	for (int i = 1; i < commands.argc; ++i)
 		lua_pushstring(L, commands.argv[i]);
-	}
 	
 	command_free(&commands);
 	
-	if (lua_pcall(L, commands.argc - 1, 1, 0) != LUA_OK) {
-		print_Lua_error(L, "error while running script");
-		exit(EXIT_FAILURE);
-	}
+	if (lua_pcall(L, commands.argc - 1, 1, 0) != LUA_OK)
+		print_Lua_error_and_crash(L, "error while running script");
 	
 	if (lua_type(L, -1) != LUA_TFUNCTION)
 		CRASH_WITH_MSG("script did not return a function\n");
