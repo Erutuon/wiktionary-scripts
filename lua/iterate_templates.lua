@@ -105,13 +105,19 @@ local function iterate_links(content, title_start, template_start, template_iter
 			local name, parameters = template.name, template.parameters
 			if multiple_link_template_names[name] then
 				local language_code = if_not_empty(parameters.lang) or if_not_empty(parameters[1])
+				local language_param = if_not_empty(parameters.lang) and "lang" or 1
 				for i, link_target in ipairs(parameters), parameters, (parameters.lang and 1 or 2) - 1 do
 					local list_parameter_index = parameters.lang and i or i - 1
 					local link = {
 						lang = if_not_empty(parameters["lang" .. list_parameter_index]) or language_code,
+						lang_param = if_not_empty(parameters["lang" .. list_parameter_index])
+							and "lang" .. list_parameter_index or language_param,
 						term = link_target,
+						term_param = i,
 						alt = if_not_empty(parameters["alt" .. list_parameter_index]),
+						alt_param = "alt" .. list_parameter_index,
 						id = if_not_empty(parameters["id" .. list_parameter_index]),
+						id_param = "id" .. list_parameter_index,
 					}
 					
 					-- This only works for languages that use hyphen to indicate an affix,
@@ -142,9 +148,13 @@ local function iterate_links(content, title_start, template_start, template_iter
 				and not (parameters[i] and parameters[i]:find "^Thesaurus:") do
 					local link = {
 						lang = lang,
+						lang_param = 1,
 						term = if_not_empty(parameters[i]),
+						term_param = i,
 						alt = if_not_empty(parameters["alt" .. i]),
+						alt_param = "alt" .. i,
 						id = if_not_empty(parameters["id" .. i]),
+						id_param = "id" .. i,
 					}
 					
 					count = count + 1
@@ -158,23 +168,32 @@ local function iterate_links(content, title_start, template_start, template_iter
 				if link_template_names[name] then
 					link = {
 						lang = parameters[1],
+						lang_param = 1,
 						term = parameters[2],
-						id = if_not_empty(parameters.id)
+						term_param = 2,
+						id = if_not_empty(parameters.id),
+						id_param = "id",
 					}
 					if name == "t" or name == "t+" then
 						-- Here parameter 3 is gender.
 						link.alt = if_not_empty(parameters.alt)
+						link.alt_param = "alt"
 					else
 						-- Some templates, like {{l}} and {{m}} do not use the alt parameter,
 						-- but it doesn't hurt to test for it.
 						link.alt = if_not_empty(parameters[3]) or if_not_empty(parameters.alt)
+						link.alt_param = if_not_empty(parameters[3]) and 3 or "alt"
 					end
 				elseif foreign_derivation_template_names[name] then
 					link = {
 						lang = parameters[2],
+						lang_param = 2,
 						term = parameters[3],
+						term_param = 3,
 						alt = if_not_empty(parameters[4]) or if_not_empty(parameters.alt),
-						id = if_not_empty(parameters.id)
+						alt_param = if_not_empty(parameters[4]) and 4 or "alt",
+						id = if_not_empty(parameters.id),
+						id_param = "id",
 					}
 				end
 				
