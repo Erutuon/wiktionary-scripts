@@ -260,7 +260,7 @@ static inline void add_namespaces (command_t * commands) {
 	if (strcmp(arg, "all") == 0) // Search all namespaces.
 		return;
 		
-	if (sscanf(arg + total_characters_read,
+	while (sscanf(arg + total_characters_read,
 	           "%d%n",
 	           &namespace,
 	           &characters_read) == 1) {
