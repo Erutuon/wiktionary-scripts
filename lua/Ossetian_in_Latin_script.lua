@@ -25,6 +25,8 @@ for link, title, template in iter.iterate_links(assert(io.read "a")) do
 		local data = {
 			template = template.text,
 			text = link.term,
+			param = link.term_param,
+			lang = link.lang,
 		}
 		
 		count = count + 1
