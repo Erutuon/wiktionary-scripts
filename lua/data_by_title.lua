@@ -19,8 +19,11 @@ local mt = {
 			local data_key = self[key_for_data_key] or "data"
 			self[key_for_data_key] = nil
 			
+			local file = self.file
+			self.file = nil
+			
 			for title, data in sorted_pairs(self, case_insensitive_comp) do
-				print(cjson.encode { title = title, [data_key] = data })
+				file:write(cjson.encode { title = title, [data_key] = data }, "\n")
 			end
 		end)
 		
@@ -30,10 +33,17 @@ local mt = {
 	end
 }
 
-return function (data_key)
+return function (data_key, file)
 	local data = setmetatable({}, mt)
 	if data_key then
 		data[key_for_data_key] = data_key
 	end
+	
+	data.file = file or io.stdout
+			
+	if not (type(file) == "userdata" and type(file.write) == "function") then
+		io.stderr:write("Invalid type for file: ", type(file), "\n")
+	end
+	
 	return data
 end
