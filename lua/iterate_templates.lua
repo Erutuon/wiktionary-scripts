@@ -118,6 +118,8 @@ local function iterate_links(content, title_start, template_start, template_iter
 						alt_param = "alt" .. list_parameter_index,
 						id = if_not_empty(parameters["id" .. list_parameter_index]),
 						id_param = "id" .. list_parameter_index,
+						tr = if_not_empty(parameters["tr" .. list_parameter_index]),
+						tr_param = "tr" .. list_parameter_index,
 					}
 					
 					-- This only works for languages that use hyphen to indicate an affix,
@@ -159,6 +161,8 @@ local function iterate_links(content, title_start, template_start, template_iter
 						alt_param = "alt" .. i,
 						id = if_not_empty(parameters["id" .. i]),
 						id_param = "id" .. i,
+						tr = if_not_empty(parameters["tr" .. i]),
+						tr_param = "tr" .. i,
 					}
 					
 					count = count + 1
@@ -200,6 +204,9 @@ local function iterate_links(content, title_start, template_start, template_iter
 						id_param = "id",
 					}
 				end
+				
+				link.tr = if_not_empty(parameters.tr)
+				link.tr_param = "tr"
 				
 				if link then
 					count = count + 1
