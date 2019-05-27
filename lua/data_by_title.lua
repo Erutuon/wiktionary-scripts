@@ -41,8 +41,8 @@ return function (data_key, file)
 	
 	data.file = file or io.stdout
 			
-	if not (type(file) == "userdata" and type(file.write) == "function") then
-		io.stderr:write("Invalid type for file: ", type(file), "\n")
+	if not (type(data.file) == "userdata" and type(data.file.write) == "function") then
+		io.stderr:write("Invalid type for file: ", type(data.file), "\n")
 	end
 	
 	return data
