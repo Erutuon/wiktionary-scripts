@@ -56,12 +56,12 @@ local all_Arabic = make_script_pattern { "Arab", "Zinh", "Zyyy" }
 
 local rure = require "luarure"
 
-local Arabic_file = assert(io.open("Arabic.txt", "wb"))
-
 local data_by_title = require "data_by_title"
 local function make_data(file)
 	return data_by_title("templates", file)
 end
+
+local combined_Arabic_data = make_data(assert(io.open("Arabic.txt", "wb")))
 
 local language_data = {
 	ar = {
@@ -71,6 +71,10 @@ local language_data = {
 		regex = rure.new("[" .. "کیۍیہھ"
 			.. "[^" .. make_script_pattern { "Arab", "Brai", "Zinh", "Zyyy" } .. "]]"),
 		title_to_data = make_data(assert(io.open("ar.txt", "wb")))
+	},
+	en = {
+		regex = rure.new("[^" .. make_script_pattern { "Latn", "Brai", "Zinh", "Zyyy" } .. "]"),
+		title_to_data = make_data(assert(io.open("en.txt", "wb"))),
 	},
 	el = {
 		regex = rure.new("[^" .. make_script_pattern { "Grek", "Zinh", "Zyyy" } .. "]"),
@@ -82,16 +86,16 @@ local language_data = {
 	},
 	fa = {
 		regex = rure.new("[" .. non_Persian .. "[^" .. all_Arabic .. "]]"),
-		title_to_data = make_data(Arabic_file),
+		title_to_data = combined_Arabic_data,
 	},
 	ps = {
 		regex = rure.new("[" .. non_Pashto .. "[^" .. all_Arabic .. "]]|"
 			.. Pashto_yeh_in_wrong_position),
-		title_to_data = make_data(Arabic_file),
+		title_to_data = combined_Arabic_data,
 	},
 	ur = {
 		regex = rure.new("[" .. non_Urdu .. "[^" .. all_Arabic .. "]]"),
-		title_to_data = make_data(Arabic_file),
+		title_to_data = combined_Arabic_data,
 	},
 }
 
