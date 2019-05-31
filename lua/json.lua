@@ -15,7 +15,7 @@ local escape_char_map = {
 }
 
 local function escape_char(c)
-	return escape_char_map[c] or string.format("\\u%04x", c:byte())
+	return escape_char_map[c] or string.format("\\u%04X", mw.ustring.codepoint(c))
 end
 
 -- This function makes an effort to convert an arbitrary Lua value to a string
@@ -34,12 +34,12 @@ function p.encode(val, opts)
 		elseif t == 'string' then
 			return p.stringFromString(val)
 		elseif t == 'table' then
-			local key = next(val)
-			if type(key) == 'number' then
+			local key_type = type(next(val))
+			if key_type == 'number' then
 				return p.arrayFromTable(val, converter)
-			elseif type(key) == 'string' then
+			elseif key_type == 'string' then
 				return p.objectFromTable(val, converter)
-			elseif type(key) == 'nil' then
+			elseif key_type == 'nil' then
 				if opts.emptyTable == 'array' then
 					return '[]'
 				elseif opts.emptyTable == 'null' then
@@ -48,7 +48,7 @@ function p.encode(val, opts)
 					return '{}'
 				end
 			else
-				error('Table with unsupported key type: ' .. type(key))
+				error('Table with unsupported key type: ' .. key_type)
 			end
 		else
 			error('Unsupported type: ' .. t)
@@ -64,11 +64,10 @@ function p.stringFromString(s)
 		error('Not a valid UTF-8 string: ' .. s)
 	end
 	
-	s = s:gsub('[%z\1-\31\\"]', escape_char)
+	-- U+2029 and U+2028 must be escaped for compatibility with JavaScript,
+	-- not for valid JSON.
+	s = mw.ustring.gsub(s, '[%c\u{2029}\u{2028}\\"]', escape_char)
 	
-	-- Not needed for valid JSON, but needed for compatibility with JavaScript:
-	s = s:gsub('\226\128\168', '\\u2028')
-	s = s:gsub('\226\128\169', '\\u2029')
 	return '"' .. s .. '"'
 end
 
@@ -113,7 +112,7 @@ function p.arrayFromTable(t, f)
 	for _, elem in ipairs(t) do
 		elem = f(elem)
 		if elem ~= nil then
-			table.insert(ret, ', ')
+			table.insert(ret, ',')
 			table.insert(ret, elem)
 		end
 	end
@@ -122,8 +121,8 @@ function p.arrayFromTable(t, f)
 		return '[]'
 	end
  
-	ret[1] = '[ '
-	table.insert(ret, ' ]')
+	ret[1] = '['
+	table.insert(ret, ']')
  
 	return table.concat(ret)
 end
@@ -145,8 +144,8 @@ function p.objectFromTable(t, f)
 		key = p.stringFromString(key)
 		value = f(value)
 		if value ~= nil then
-			table.insert(ret, ', ')
-			table.insert(ret, key .. ': ' .. value)
+			table.insert(ret, ',')
+			table.insert(ret, key .. ':' .. value)
 		end
 	end
  
@@ -154,8 +153,8 @@ function p.objectFromTable(t, f)
 		return '{}'
 	end
  
-	ret[1] = '{ '
-	table.insert(ret, ' }')
+	ret[1] = '{'
+	table.insert(ret, '}')
  
 	return table.concat(ret)
 end
