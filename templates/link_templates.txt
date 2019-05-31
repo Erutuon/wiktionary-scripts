@@ -83,6 +83,7 @@ suffix	suffix.txt
 suf	suffix.txt
 synonyms	synonyms.txt
 syn	synonyms.txt
+t+check	t+check.txt
 t-check	t-check.txt
 th-der	th-der.txt
 translit	transliteration.txt

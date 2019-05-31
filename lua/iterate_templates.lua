@@ -41,12 +41,20 @@ local link_template_names = list_to_set {
 	"ll",
 	"m", "mention",
 	"m-self",
-	"noncognate", "ncog", "nc",
+	"noncognate", "noncog", "ncog", "nc",
 	"rebracketing",
 	"semantic loan", "sl",
 	"t",
 	"t+",
 	"t-check",
+	"t+check",
+}
+
+local translation_template_names = {
+	"t",
+	"t+",
+	"t-check",
+	"t+check",
 }
 
 -- Templates in which the language code is in the second parameter
@@ -182,7 +190,7 @@ local function iterate_links(content, title_start, template_start, template_iter
 						id = if_not_empty(parameters.id),
 						id_param = "id",
 					}
-					if name == "t" or name == "t+" then
+					if translation_template_names[name] then
 						-- Here parameter 3 is gender.
 						link.alt = if_not_empty(parameters.alt)
 						link.alt_param = "alt"
@@ -205,10 +213,10 @@ local function iterate_links(content, title_start, template_start, template_iter
 					}
 				end
 				
-				link.tr = if_not_empty(parameters.tr)
-				link.tr_param = "tr"
-				
 				if link then
+					link.tr = if_not_empty(parameters.tr)
+					link.tr_param = "tr"
+					
 					count = count + 1
 					link.count = count
 					coroutine.yield(link, title, template)
