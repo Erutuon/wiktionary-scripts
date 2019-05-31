@@ -12,7 +12,7 @@ local mt = {
 	end,
 	__gc = function (self)
 		local ok, msg = pcall(function()
-			local cjson = require "cjson"
+			local json = require "json"
 			local sorted_pairs = require "Module:table".sortedPairs
 			local case_insensitive_comp = require "casefold".comp
 			
@@ -23,7 +23,7 @@ local mt = {
 			self.file = nil
 			
 			for title, data in sorted_pairs(self, case_insensitive_comp) do
-				file:write(cjson.encode { title = title, [data_key] = data }, "\n")
+				file:write(json.encode { title = title, [data_key] = data }, "\n")
 			end
 		end)
 		

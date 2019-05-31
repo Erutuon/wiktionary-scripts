@@ -2,10 +2,26 @@
 
 local p = {}
 
+require "mediawiki"
+
+local escape_char_map = {
+	["\\"] = "\\\\",
+	["\""] = "\\\"",
+	["\b"] = "\\b",
+	["\f"] = "\\f",
+	["\n"] = "\\n",
+	["\r"] = "\\r",
+	["\t"] = "\\t",
+}
+
+local function escape_char(c)
+	return escape_char_map[c] or string.format("\\u%04x", c:byte())
+end
+
 -- This function makes an effort to convert an arbitrary Lua value to a string
 -- containing a JSON representation of it. It's not intended to be very robust,
 -- but may be useful for prototyping.
-function p.valueFromValue(val, opts)
+function p.encode(val, opts)
 	opts = opts or {}
 	function converter(val)
 		local t = type(val)
@@ -47,10 +63,9 @@ function p.stringFromString(s)
 	if type(s) ~= 'string' or not mw.ustring.isutf8(s) then
 		error('Not a valid UTF-8 string: ' .. s)
 	end
-	s = s:gsub('[\\"]', '\\%0')
-	s = s:gsub('%c', function (c)
-		return string.format('\\u00%02X', c:byte())
-	end)
+	
+	s = s:gsub('[%z\1-\31\\"]', escape_char)
+	
 	-- Not needed for valid JSON, but needed for compatibility with JavaScript:
 	s = s:gsub('\226\128\168', '\\u2028')
 	s = s:gsub('\226\128\169', '\\u2029')
@@ -123,7 +138,7 @@ function p.objectFromTable(t, f)
 	f = f or function (x) return x end
  
 	local ret = {}
-	for key, value in pairs(t) do
+	for key, value in require "Module:table".sortedPairs(t) do
 		if type(key) ~= 'string' then
 			error('Not a string: ' .. key)
 		end
