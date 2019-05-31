@@ -8,6 +8,7 @@ given name	given_name.txt
 grc-adecl	grc-adecl.txt
 grc-conj	grc-conj.txt
 grc-decl	grc-decl.txt
+head	head.txt
 ine-root	ine-root.txt
 inflection of	inflection_of.txt
 IPA	IPA.txt
