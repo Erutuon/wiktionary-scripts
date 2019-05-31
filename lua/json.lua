@@ -5,7 +5,7 @@ local p = {}
 -- This function makes an effort to convert an arbitrary Lua value to a string
 -- containing a JSON representation of it. It's not intended to be very robust,
 -- but may be useful for prototyping.
-function p.jsonValueFromValue(val, opts)
+function p.valueFromValue(val, opts)
 	opts = opts or {}
 	function converter(val)
 		local t = type(val)
@@ -14,15 +14,15 @@ function p.jsonValueFromValue(val, opts)
 		elseif t == 'boolean' then
 			return val and 'true' or 'false'
 		elseif t == 'number' then
-			return p.jsonNumberFromNumber(val)
+			return p.numberFromNumber(val)
 		elseif t == 'string' then
-			return p.jsonStringFromString(val)
+			return p.stringFromString(val)
 		elseif t == 'table' then
 			local key = next(val)
 			if type(key) == 'number' then
-				return p.jsonArrayFromTable(val, converter)
+				return p.arrayFromTable(val, converter)
 			elseif type(key) == 'string' then
-				return p.jsonObjectFromTable(val, converter)
+				return p.objectFromTable(val, converter)
 			elseif type(key) == 'nil' then
 				if opts.emptyTable == 'array' then
 					return '[]'
@@ -43,7 +43,7 @@ end
 
 -- Given a string, escapes any illegal characters and wraps it in double-quotes.
 -- Raises an error if the string is not valid UTF-8.
-function p.jsonStringFromString(s)
+function p.stringFromString(s)
 	if type(s) ~= 'string' or not mw.ustring.isutf8(s) then
 		error('Not a valid UTF-8 string: ' .. s)
 	end
@@ -60,7 +60,7 @@ end
 -- Given a finite real number x, returns a string containing its JSON
 -- representation, with enough precision that it *should* round-trip correctly
 -- (depending on the well-behavedness of the system on the other end).
-function p.jsonNumberFromNumber(x)
+function p.numberFromNumber(x)
 	if type(x) ~= 'number' then
 		error('Not of type "number": ' .. x .. ' (' .. type(x) .. ')')
 	end
@@ -71,7 +71,7 @@ function p.jsonNumberFromNumber(x)
 end
 
 -- Given nil, returns the string 'null'. (Included for completeness' sake.)
-function p.jsonNullFromNil(v)
+function p.nullFromNil(v)
 	if type(v) ~= 'nil' then
 		error('Not nil: ' .. v .. ' (' .. type(v) .. ')')
 	end
@@ -80,7 +80,7 @@ end
 
 -- Given true or false, returns the string 'true' or the string 'false'.
 -- (Included for completeness' sake.)
-function p.jsonTrueOrFalseFromBoolean(b)
+function p.trueOrFalseFromBoolean(b)
 	if type(b) ~= 'boolean' then
 		error('Not a boolean: ' .. b .. ' (' .. type(b) .. ')')
 	end
@@ -91,7 +91,7 @@ end
 -- '[ v1, v2, v3 ]'. Optionally takes a function to JSONify the values before
 -- assembly; if that function is omitted, then the values should already be
 -- strings containing valid JSON data.
-function p.jsonArrayFromTable(t, f)
+function p.arrayFromTable(t, f)
 	f = f or function (x) return x end
  
 	local ret = {}
@@ -119,7 +119,7 @@ end
 -- values should already be strings containing valid JSON data. (The keys, by
 -- contrast, should just be regular Lua strings; they will be passed to this
 -- module's jsonStringFromString.)
-function p.jsonObjectFromTable(t, f)
+function p.objectFromTable(t, f)
 	f = f or function (x) return x end
  
 	local ret = {}
@@ -127,7 +127,7 @@ function p.jsonObjectFromTable(t, f)
 		if type(key) ~= 'string' then
 			error('Not a string: ' .. key)
 		end
-		key = p.jsonStringFromString(key)
+		key = p.stringFromString(key)
 		value = f(value)
 		if value ~= nil then
 			table.insert(ret, ', ')
