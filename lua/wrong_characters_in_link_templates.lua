@@ -97,6 +97,10 @@ local language_data = {
 		regex = rure.new("[" .. non_Urdu .. "[^" .. all_Arabic .. "]]"),
 		title_to_data = combined_Arabic_data,
 	},
+	sdh = {
+		regex = rure.new("[" .. non_Persian .. "[^" .. make_script_pattern { "Latn", "Arab", "Zinh", "Zyyy" } .. "]]"),
+		title_to_data = make_data(assert(io.open("sdh.txt", "wb"))),
+	}
 }
 
 local Cyrillic_data = {
