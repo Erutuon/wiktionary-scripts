@@ -299,9 +299,12 @@ static inline void process_args (int argc, char * * argv, option_t * options) {
 	if (options->pages_to_process == 0) {
 		options->pages_to_process = UINT32_MAX;
 		EPRINTF("No page limit given; set to %u\n", options->pages_to_process);
-	} else if (options->input_file == NULL)
+	}
+	
+	if (options->input_file == NULL)
 		CRASH_WITH_MSG("input file required\n");
-	else if (options->output_file == NULL)
+	
+	if (options->output_file == NULL)
 		CRASH_WITH_MSG("output file required\n");
 }
 
