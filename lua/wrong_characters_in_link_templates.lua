@@ -37,22 +37,27 @@ local function eprint(...)
 	io.stderr:write "\n"
 end
 
+local Array = require "Module:array"
 local function make_script_pattern(scripts)
-	return require 'Module:array'(scripts)
+	return Array(scripts)
 		:map(function (script) return "\\p{" .. script .. "}" end)
 		:concat ''
 end
 
--- Arabic letter kaf, Arabic letter yeh, Arabic letter alef maksura, Arabic letter teh marbuta
-local non_Persian = "كيىة"
--- Arabic letter kaf, Arabic letter alef maksura, Arabic letter teh marbuta
-local non_Pashto = "كىة"
--- Arabic letter Farsi yeh, Arabic letter yeh with tail
-local Pashto_only_final_yeh = "یۍ"
--- Arabic letter heh
-local non_Urdu = non_Persian .. "ه"
--- Arabic letter keheh, Arabic letter yeh, Arabic letter alef maksura, Arabic letter teh marbuta
-local non_Ottoman = "کيىة"
+local uniname = require "uniname"
+local function chars_from_names(...)
+	return Array { ... }
+		:map(function (name) return utf8.char(uniname.to_codepoint(name)) end)
+		:concat ''
+end
+
+local non_Persian = chars_from_names(
+	"Arabic letter kaf", "Arabic letter yeh", "Arabic letter alef maksura", "Arabic letter teh marbuta")
+local non_Pashto = chars_from_names("Arabic letter kaf", "Arabic letter alef maksura", "Arabic letter teh marbuta")
+local Pashto_only_final_yeh = chars_from_names("Arabic letter Farsi yeh", "Arabic letter yeh with tail")
+local non_Urdu = non_Persian .. chars_from_names("Arabic letter heh")
+local non_Ottoman = chars_from_names(
+	"Arabic letter keheh", "Arabic letter yeh", "Arabic letter alef maksura", "Arabic letter teh marbuta")
 local Pashto_yeh_in_wrong_position = "[" .. Pashto_only_final_yeh .. "]" .. "\\B"
 local all_Arabic = make_script_pattern { "Arab", "Zinh", "Zyyy" }
 
