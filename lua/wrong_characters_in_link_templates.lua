@@ -51,6 +51,8 @@ local non_Pashto = "كىة"
 local Pashto_only_final_yeh = "یۍ"
 -- Arabic letter heh
 local non_Urdu = non_Persian .. "ه"
+-- Arabic letter keheh, Arabic letter yeh, Arabic letter alef maksura, Arabic letter teh marbuta
+local non_Ottoman = "کيىة"
 local Pashto_yeh_in_wrong_position = "[" .. Pashto_only_final_yeh .. "]" .. "\\B"
 local all_Arabic = make_script_pattern { "Arab", "Zinh", "Zyyy" }
 
@@ -100,13 +102,18 @@ local language_data = {
 	sdh = {
 		regex = rure.new("[" .. non_Persian .. "[^" .. make_script_pattern { "Latn", "Arab", "Zinh", "Zyyy" } .. "]]"),
 		title_to_data = make_data(assert(io.open("sdh.txt", "wb"))),
-	}
+	},
+	ota = {
+		regex = rure.new("[" .. non_Ottoman .. "[^" .. all_Arabic .. "]]"),
+		title_to_data = make_data(assert(io.open("ota.txt", "wb"))),
+	},
 }
 
 local Cyrillic_data = {
 	regex = rure.new("[^" .. make_script_pattern { "Cyrl", "Zinh", "Zyyy" } .. "]"),
 	title_to_data = make_data(assert(io.open("Cyrillic.txt", "wb"))),
 }
+
 for _, lang in ipairs {
 	"abq", "ady", "agx", "akv", "alr", "alt", "ani", "aqc", "atv", "av", "ba",
 	"bdk", "be", "bg", "bph", "bua", "ce", "chm", "cji", "cjs", "ckt",
