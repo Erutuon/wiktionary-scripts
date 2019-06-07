@@ -2,6 +2,7 @@ require "mediawiki"
 local Array = require "Module:array"
 
 local key_for_data_key = {}
+local file_key = {}
 
 -- Enables table to print data as JSONL when garbage-collected.
 local mt = {
@@ -19,8 +20,8 @@ local mt = {
 			local data_key = self[key_for_data_key] or "data"
 			self[key_for_data_key] = nil
 			
-			local file = self.file
-			self.file = nil
+			local file = self[file_key]
+			self[file_key] = nil
 			
 			for title, data in sorted_pairs(self, case_insensitive_comp) do
 				file:write(json.encode { title = title, [data_key] = data }, "\n")
@@ -39,10 +40,10 @@ return function (data_key, file)
 		data[key_for_data_key] = data_key
 	end
 	
-	data.file = file or io.stdout
+	data[file_key] = file or io.stdout
 			
-	if not (type(data.file) == "userdata" and type(data.file.write) == "function") then
-		io.stderr:write("Invalid type for file: ", type(data.file), "\n")
+	if not (type(data[file_key]) == "userdata" and type(data[file_key].write) == "function") then
+		io.stderr:write("Invalid type for file: ", type(data[file_key]), "\n")
 	end
 	
 	return data
