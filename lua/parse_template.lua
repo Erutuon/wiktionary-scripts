@@ -38,7 +38,7 @@ local parameter_pattern = P {
 		+ Cc(nil)
 			* C((V "constructions"^1 + (1 - (P "|" + V "not_in_params"))^1)^0))
 		* Cp(),
-	constructions = V "template" + V "link" + V "html",
+	constructions = V "comment" + V "template" + V "link" + V "html",
 	link = P "[["
 		* ((1 - (P "|" + P "[[" + P "]]" + P "{{" + P "}}"))^1 + V "template")^1
 		* (P "|" * (1 - (P "[[" + P "]]"))^1)^-1
@@ -54,11 +54,12 @@ local parameter_pattern = P {
 				return close == open
 			end)
 		* ws^0 * P ">",
+	comment = P "<!--" * (1 - P "-->")^0 * P "-->",
 	br = P "<br" * ws^0 * P "/"^-1 * P">",
 	attribute = (V "html_identifier" * P "=" * (P '"' * (1 - P '"')^0 * P '"' + (1 - ws)^0)),
 	html_identifier = R("az", "AZ")^1,
 	template = make_template_pattern(false),
-	not_in_params = P "{{" + P "}}" + P "[[",
+	not_in_params = P "{{" + P "}}" + P "[[" + P "<!--",
 	
 }
 
