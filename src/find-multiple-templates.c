@@ -40,8 +40,8 @@
 #define GET_PTR_VAL(ptr) ((void *) SIGN_EXTEND(ptr, 16))
 
 #define STORE_BIT_INDEX(ptr) STORE_IN_PTR(ptr, increment_output_file_bit_index())
-#define SET_BIT_AT(val, n, bool) ((val) | (((uintptr_t) bool) << n))
-#define GET_BIT_AT(val, n) (((val) & (((uintptr_t) 1) << n)) >> n)
+#define SET_BIT_AT(val, n, bool) ((val) | (((__uint128_t) bool) << n))
+#define GET_BIT_AT(val, n) (((val) & (((__uint128_t) 1) << n)) >> n)
 
 // Assign each output file a number, and when processing each page,
 // use bits to track whether the title of the page currently being processed
