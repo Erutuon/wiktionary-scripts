@@ -84,11 +84,12 @@ local language_data = {
 		title_to_data = make_data(assert(io.open("en.txt", "wb"))),
 	},
 	el = {
-		regex = rure.new("[^" .. make_script_pattern { "Grek", "Zinh", "Zyyy" } .. "]"),
+		regex = rure.new("[ϑϰϱϕ[^" .. make_script_pattern { "Grek", "Zinh", "Zyyy" } .. "]]"),
 		title_to_data = make_data(assert(io.open("el.txt", "wb"))),
 	},
 	grc = {
-		regex = rure.new("[^" .. make_script_pattern { "Grek", "Cprt", "Zinh", "Zyyy" } .. "]"),
+		regex = rure.new("[ϑϰϱϕ" .. chars_from_names("Greek koronis", "Greek psili")
+			.. "[^" .. make_script_pattern { "Grek", "Cprt", "Zinh", "Zyyy" } .. "]]"),
 		title_to_data = make_data(assert(io.open("grc.txt", "wb"))),
 	},
 	fa = {
