@@ -14,7 +14,7 @@ local function get_by_code(code)
 		or etymology_languages.getByCode(code)
 end
 
-local max = 10
+local max = type((...)) == "string" and tonumber(...) or math.huge
 local count = 0
 
 local link_template_names = require "Module:table".listToSet {
@@ -38,28 +38,36 @@ local function eprint(...)
 end
 
 local Array = require "Module:array"
-local function make_script_pattern(scripts)
-	return Array(scripts)
+local function make_script_pattern(...)
+	return Array(...)
 		:map(function (script) return "\\p{" .. script .. "}" end)
 		:concat ''
 end
 
 local uniname = require "uniname"
 local function chars_from_names(...)
-	return Array { ... }
+	return Array(...)
 		:map(function (name) return utf8.char(uniname.to_codepoint(name)) end)
 		:concat ''
 end
 
-local non_Persian = chars_from_names(
-	"Arabic letter kaf", "Arabic letter yeh", "Arabic letter alef maksura", "Arabic letter teh marbuta")
-local non_Pashto = chars_from_names("Arabic letter kaf", "Arabic letter alef maksura", "Arabic letter teh marbuta")
-local Pashto_only_final_yeh = chars_from_names("Arabic letter Farsi yeh", "Arabic letter yeh with tail")
-local non_Urdu = non_Persian .. chars_from_names("Arabic letter heh")
-local non_Ottoman = chars_from_names(
-	"Arabic letter keheh", "Arabic letter yeh", "Arabic letter alef maksura", "Arabic letter teh marbuta")
+local function Arabic_letters(...)
+	return chars_from_names(Array(...)
+		:map(function (name) return "Arabic letter " .. name end))
+end
+
+local non_Persian = Arabic_letters(
+	"kaf", "yeh", "alef maksura", "teh marbuta",
+	"heh doachashmee", "heh goal")
+local non_Pashto = Arabic_letters("kaf", "alef maksura", "teh marbuta")
+local Pashto_only_final_yeh = Arabic_letters("Farsi yeh", "yeh with tail")
+local non_Urdu = Arabic_letters("kaf", "yeh", "alef maksura", "teh marbuta", "heh")
+local non_Ottoman = Arabic_letters(
+	"keheh", "yeh", "alef maksura", "teh marbuta", "heh doachashmee", "heh goal")
 local Pashto_yeh_in_wrong_position = "[" .. Pashto_only_final_yeh .. "]" .. "\\B"
-local all_Arabic = make_script_pattern { "Arab", "Zinh", "Zyyy" }
+local all_Arabic = make_script_pattern("Arab", "Zinh", "Zyyy")
+local Greek_symbols = chars_from_names(
+	"Greek theta symbol", "Greek phi symbol", "Greek kappa symbol", "Greek rho symbol")
 
 local rure = require "luarure"
 
@@ -72,24 +80,22 @@ local combined_Arabic_data = make_data(assert(io.open("Arabic.txt", "wb")))
 
 local language_data = {
 	ar = {
-		-- Arabic letter keheh, Arabic letter Farsi yeh,
-		-- Arabic letter yeh with tail, Arabic letter Farsi yeh,
-		-- Arabic letter heh goal, Arabic letter heh doachashmee
-		regex = rure.new("[" .. "کیۍیہھ"
-			.. "[^" .. make_script_pattern { "Arab", "Brai", "Zinh", "Zyyy" } .. "]]"),
+		regex = rure.new("["
+			.. Arabic_letters("Farsi yeh", "heh doachashmee", "heh goal", "keheh", "yeh with tail")
+			.. "[^" .. make_script_pattern("Arab", "Brai", "Zinh", "Zyyy") .. "]]"),
 		title_to_data = make_data(assert(io.open("ar.txt", "wb")))
 	},
 	en = {
-		regex = rure.new("[^" .. make_script_pattern { "Latn", "Brai", "Zinh", "Zyyy" } .. "]"),
+		regex = rure.new("[^" .. make_script_pattern("Latn", "Brai", "Zinh", "Zyyy") .. "]"),
 		title_to_data = make_data(assert(io.open("en.txt", "wb"))),
 	},
 	el = {
-		regex = rure.new("[ϑϰϱϕ[^" .. make_script_pattern { "Grek", "Zinh", "Zyyy" } .. "]]"),
+		regex = rure.new("[" .. Greek_symbols .. "[^" .. make_script_pattern("Grek", "Zinh", "Zyyy") .. "]]"),
 		title_to_data = make_data(assert(io.open("el.txt", "wb"))),
 	},
 	grc = {
-		regex = rure.new("[ϑϰϱϕ" .. chars_from_names("Greek koronis", "Greek psili")
-			.. "[^" .. make_script_pattern { "Grek", "Cprt", "Zinh", "Zyyy" } .. "]]"),
+		regex = rure.new("[" .. Greek_symbols .. chars_from_names("Greek koronis", "Greek psili")
+			.. "[^" .. make_script_pattern("Grek", "Cprt", "Zinh", "Zyyy") .. "]]"),
 		title_to_data = make_data(assert(io.open("grc.txt", "wb"))),
 	},
 	fa = {
@@ -106,7 +112,7 @@ local language_data = {
 		title_to_data = combined_Arabic_data,
 	},
 	sdh = {
-		regex = rure.new("[" .. non_Persian .. "[^" .. make_script_pattern { "Latn", "Arab", "Zinh", "Zyyy" } .. "]]"),
+		regex = rure.new("[" .. non_Persian .. "[^" .. make_script_pattern("Latn", "Arab", "Zinh", "Zyyy") .. "]]"),
 		title_to_data = make_data(assert(io.open("sdh.txt", "wb"))),
 	},
 	ota = {
@@ -116,7 +122,7 @@ local language_data = {
 }
 
 local Cyrillic_data = {
-	regex = rure.new("[^" .. make_script_pattern { "Cyrl", "Zinh", "Zyyy" } .. "]"),
+	regex = rure.new("[^" .. make_script_pattern("Cyrl", "Zinh", "Zyyy") .. "]"),
 	title_to_data = make_data(assert(io.open("Cyrillic.txt", "wb"))),
 }
 
@@ -161,6 +167,8 @@ local function process_link(link, title, template)
 	local data = language_data[link.parent_code]
 	
 	if data and data.regex:is_match(target) then
+		count = count + 1
+		
 		data.title_to_data[title]:insert {
 			template = template.text,
 			text = target,
