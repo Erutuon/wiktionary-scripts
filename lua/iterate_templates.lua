@@ -43,7 +43,6 @@ local link_template_names = list_to_set {
 	"m-self",
 	"noncognate", "noncog", "ncog", "nc",
 	"rebracketing",
-	"semantic loan", "sl",
 	"t",
 	"t+",
 	"t-check",
@@ -67,6 +66,7 @@ local foreign_derivation_template_names = list_to_set {
 	"learned borrowing", "lbor",
 	"orthographic borrowing", "obor",
 	"phono-semantic matching", "psm",
+	"semantic loan", "sl",
 	"transliteration", "translit",
 }
 
