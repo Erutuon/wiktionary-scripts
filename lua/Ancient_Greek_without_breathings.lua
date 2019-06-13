@@ -17,31 +17,21 @@ local regex = rure.new([[
 local decompose = require "lutf8proc".decomp
 
 local count = 0
-local max = math.huge
+local max = type((...)) == "string" and tonumber(...) or math.huge
 
-local Array = require "mediawiki.array"
-local title_to_templates = setmetatable({}, {
-	__index = function (self, key)
-		local val = Array()
-		self[key] = val
-		return val
-	end
-})
+local data_by_title = require "data_by_title" "templates"
+
+local function lacks_breathing(str)
+	return str and str:sub(1, 1) ~= "-"
+		and regex:is_match(decompose(str))
+end
+
 for link, title, template in iter.iterate_links(io.read 'a') do
-	if link.lang == "grc" and link.term and link.term:sub(1, 1) ~= "-"
-	and regex:is_match(decompose(link.term)) then
-		title_to_templates[title]:insert(template.text)
+	if link.lang == "grc" and (lacks_breathing(link.term) or lacks_breathing(link.alt)) then
+		data_by_title[title]:insert(template.text)
 		count = count + 1
 		if count > max then
 			break
 		end
 	end
-end
-
-local case_insensitive_comp = require "casefold".comp
-
-local cjson = require "cjson"
-
-for title, templates in require "mediawiki.table".sortedPairs(title_to_templates, case_insensitive_comp) do
-	print(cjson.encode { title = title, templates = templates })
 end
