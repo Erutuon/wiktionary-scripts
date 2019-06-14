@@ -19,39 +19,32 @@ local vowel_with_breathing = rure.new([[
 local letter_or_diacritic = rure.new "[\\pL\\pM-]"
 
 local count = 0
-local max = math.huge
+local limit = type((...)) == "string" and tonumber(...) or math.huge
 
-local matches = {}
-setmetatable(matches, {
-	__index = function (self, k)
-		local val = require 'Module:array'()
-		self[k] = val
-		return val
-	end
-})
+local data_by_title = require "data_by_title" "templates"
 
-for link, title, template in iter.iterate_links(assert(io.read "a")) do
-	if link.lang == "grc" and link.term and link.term ~= "" then
-		local decomposed = decompose(link.term)
+local function has_internal_breathing(str)
+	if str and str ~= "" then
+		local decomposed = decompose(str)
 		for captures in vowel_with_breathing:iter_captures(decomposed) do
 			local preceding, vowel = captures[1], captures[2]
 			if preceding ~= "" and letter_or_diacritic:is_match(preceding) then
-				matches[title]:insert(template.text)
-				
-				count = count + 1
+				return true
 			end
 		end
+	end
+	
+	return false
+end
+
+for link, title, template in iter.iterate_links(assert(io.read "a")) do
+	if link.lang == "grc" and (has_internal_breathing(link.term) or has_internal_breathing(link.alt)) then
+		data_by_title[title]:insert(template.text)
 		
-		if count > max then
+		count = count + 1
+		
+		if count > limit then
 			break
 		end
 	end
-end
-
-local sorted_pairs = require 'Module:table'.sortedPairs
-local case_insensitive_comp = require "casefold".comp
-
-local cjson = require 'cjson'
-for title, templates in sorted_pairs(matches, case_insensitive_comp) do
-	print(cjson.encode { title = title, templates = templates })
 end
