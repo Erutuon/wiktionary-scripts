@@ -4,6 +4,8 @@ require "mediawiki"
 
 local json = require "cjson"
 local parse = require "parse_template"
+local eprint = require "utils".eprint
+local chars_from_names = require "utils".chars_from_names
 
 local languages = require "Module:languages"
 local families = require "Module:families"
@@ -26,17 +28,6 @@ local derivation_template_names = require "Module:table".listToSet {
 	"cal", "calq", "calque", "clq",
 }
 
-local function eprint(...)
-	for i = 1, select("#", ...) do
-		if i > 1 then
-			io.stderr:write "\t"
-		end
-		io.stderr:write(tostring(select(i, ...)))
-	end
-	count = count + 1
-	io.stderr:write "\n"
-end
-
 local Array = require "Module:array"
 local function make_script_pattern(...)
 	return Array(...)
@@ -44,12 +35,6 @@ local function make_script_pattern(...)
 		:concat ''
 end
 
-local uniname = require "uniname"
-local function chars_from_names(...)
-	return Array(...)
-		:map(function (name) return utf8.char(uniname.to_codepoint(name)) end)
-		:concat ''
-end
 
 local function Arabic_letters(...)
 	return chars_from_names(Array(...)

@@ -6,6 +6,9 @@ local iter = require 'windows.iter'
 local Array = require 'mediawiki.array'
 require 'insert_lpeg'
 
+-- utils also provides string.trim
+local eprint = require 'utils'.eprint
+
 local first_tag_group_pattern = C((1 - P '//')^1)
 
 -- For now, return tag type for first of several conjoined tags.
@@ -28,7 +31,7 @@ local function iter_tag_types(tags)
 			local pos = 1
 			while true do
 				local tag
-				tag, pos = tags:match("([^:]+)()", pos)
+				tag, pos = tags:match('([^:]+)()', pos)
 				
 				if not tag then
 					break
@@ -40,14 +43,6 @@ local function iter_tag_types(tags)
 			end
 		end
 	end)
-end
-
-local function eprint(...)
-	io.stderr:write(table.concat({...}, '\t'), '\n')
-end
-
-function string:trim()
-	return self:gsub('^%s*(.-)%s*$', '%1')
 end
 
 function string:strip_comments()
@@ -73,7 +68,7 @@ for template, title in iterate_templates(assert(io.read 'a')) do
 	local parameters = template.parameters
 	local lang = parameters[1] or parameters.lang
 	lang = lang and lang:trim()
-	if lang == "grc" then
+	if lang == 'grc' then
 		-- print(template.text)
 		template.title = title
 		

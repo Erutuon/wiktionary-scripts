@@ -3,12 +3,7 @@ local iterate_templates = require "iterate_templates"
 local rure = require "luarure"
 local Array = require "mediawiki.array"
 
-local uniname = require "uniname"
-local function chars_from_names(...)
-	return Array(...)
-		:map(function (name) return utf8.char(uniname.to_codepoint(name)) end)
-		:concat ''
-end
+local chars_from_names = require "utils".chars_from_names
 
 local ZWNJ = chars_from_names("zero width non-joiner")
 
@@ -111,6 +106,7 @@ local limit = type((...)) == "string" and tonumber(...) or math.huge
 
 local Arabic_regex = rure.new "\\p{Arabic}"
 
+--[[
 for link, title, template in iterate_templates.iterate_links(assert(io.read 'a')) do
 	if ((link.term and Arabic_regex:is_match(link.term) and next_bad_ZWNJ(link.term)() ~= nil)
 			or (link.alt and Arabic_regex:is_match(link.alt) and next_bad_ZWNJ(link.alt)() ~= nil)) then
@@ -120,5 +116,15 @@ for link, title, template in iterate_templates.iterate_links(assert(io.read 'a')
 		if count > limit then
 			break
 		end
+	end
+end
+--]]
+
+for namespace, title in assert(io.read 'a'):gmatch('%f[^\n\0](%d)\t([^\n]+)') do
+	if namespace == "0" and Arabic_regex:is_match(title) and next_bad_ZWNJ(title)() ~= nil then
+		title = title:gsub("_", " ")
+		print('* <span class="Arab">[[' .. title .. '|' .. title
+			.. ']]</span> (<span class="Arab">'
+			.. title:gsub(ZWNJ, '<span dir="ltr">&amp;zwnj;</span>') .. '</span>)')
 	end
 end
