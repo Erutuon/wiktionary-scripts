@@ -10,7 +10,11 @@ function M.chars_from_names(...)
 end
 
 function M.eprint(...)
-	io.stderr:write(table.concat({...}, '\t'), '\n')
+	local vals = table.pack(...)
+	for i = 1, vals.n do
+		vals[i] = tostring(vals[i])
+	end
+	io.stderr:write(table.concat(vals, '\t'), '\n')
 end
 
 function string:trim()
