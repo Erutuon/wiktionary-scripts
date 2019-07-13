@@ -98,11 +98,11 @@ local language_data = {
 	},
 	sdh = {
 		regex = rure.new("[" .. non_Persian .. "[^" .. make_script_pattern("Latn", "Arab", "Zinh", "Zyyy") .. "]]"),
-		title_to_data = make_data(assert(io.open("sdh.txt", "wb"))),
+		title_to_data = combined_Arabic_data,
 	},
 	ota = {
 		regex = rure.new("[" .. non_Ottoman .. "[^" .. all_Arabic .. "]]"),
-		title_to_data = make_data(assert(io.open("ota.txt", "wb"))),
+		title_to_data = combined_Arabic_data,
 	},
 }
 
