@@ -9,10 +9,34 @@ grc-adecl	grc-adecl.txt
 grc-conj	grc-conj.txt
 grc-decl	grc-decl.txt
 head	head.txt
+hyph	hyphenation.txt
+hyphenation	hyphenation.txt
 ine-root	ine-root.txt
 inflection of	inflection_of.txt
+it-IPA	it-IPA.txt
+it-stress	it-stress.txt
 IPA	IPA.txt
+IPAchar	IPAchar.txt
 la-conj	la-conj.txt
+LSJ	LSJ.txt
+pl-IPA	pl-IPA.txt
+R:Autenrieth	R:Perseus.txt
+R:Elementary Lewis	R:Perseus.txt
+R:Gaffiot	R:Gaffiot.txt
+R:grc:LSJ	R:Perseus.txt
+R:Harpocration	R:Perseus.txt
+R:L&S	R:Perseus.txt
+R:LSJ	R:Perseus.txt
+R:Middle Liddell	R:Perseus.txt
+R:Peck	R:Perseus.txt
+R:PersEnc	R:Perseus.txt
+R:Platner	R:Perseus.txt
+R:Slater	R:Perseus.txt
+R:Smith's Antiquities	R:Perseus.txt
+R:Smith's Geography	R:Perseus.txt
+R:Smith's Persons	R:Perseus.txt
+R:Stillwell	R:Perseus.txt
+R:Zoega	R:Perseus.txt
 reflist	reflist.txt
 rhymes	rhymes.txt
 rhyme	rhymes.txt
