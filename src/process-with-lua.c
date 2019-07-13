@@ -40,7 +40,7 @@ static bool process_page (parse_info * info) {
 	lua_pushstring(L, namespace_name);
 	
 	if (lua_pcall(L, 3, 1, 0) != LUA_OK)
-		print_Lua_error_and_crash(L, "error while calling function\n");
+		print_Lua_error_and_crash(L, "error while calling function");
 	
 	if (lua_type(L, -1) != LUA_TBOOLEAN)
 		CRASH_WITH_MSG("function did not return a boolean\n");

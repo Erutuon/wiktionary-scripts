@@ -33,8 +33,8 @@ find-multiple-templates: $(SHARED_OBJS) src/$$@.o
 	$(COMPILE) $(SHARED_OBJS) src/$@.o \
 		-o bin/$@ $(LIBS) -lhat-trie
 
-process-with-lua: utils/buffer.o utils/parser.o utils/commander.o src/$$@.o
-	$(COMPILE) utils/buffer.o utils/parser.o utils/commander.o src/$@.o \
+process-with-lua: $(SHARED_OBJS) src/$$@.o
+	$(COMPILE) $(SHARED_OBJS) src/$@.o \
 		-o bin/$@ $(LIBS) $(LUA_LIBS) -export-dynamic
 
 utils/commander.o: $(COMMANDER_DIR)/commander.c

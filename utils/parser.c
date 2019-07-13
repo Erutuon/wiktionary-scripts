@@ -127,6 +127,7 @@ const char * get_namespace_name (Wiktionary_namespace_t number) {
 	return NAMESPACE_VAR;
 }
 
+#undef NAMESPACE_VAR
 #undef NAMESPACE_CASE
 
 // name and namespace buffers must be zeroed at beginning of each new page tag
