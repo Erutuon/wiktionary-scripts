@@ -21,10 +21,8 @@ setmetatable(titles_by_language_code, {
 		local comp = require "casefold".comp
 		for language_code, titles in pairs(self) do
 			local file = assert(io.open(language_code .. ".txt", "wb"))
-			table.sort(titles, comp)
-			for _, title in ipairs(titles) do
-				file:write(title, "\n")
-			end
+			titles:sort(comp)
+			file:write(titles:concat "\n")
 			file:close()
 		end
 	end

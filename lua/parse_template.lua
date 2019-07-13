@@ -76,7 +76,7 @@ local function parse_template(str, pos, all_string_parameter_names)
 	local template, title, body = template_pattern:match(str, pos)
 	
 	if not template then
-		error("The template pattern did not match the string " .. str:sub(pos) .. ".")
+		error("The template pattern did not match the string " .. str:sub(pos, (pos or 1) + 100) .. ".")
 	end
 	
 	local pos
