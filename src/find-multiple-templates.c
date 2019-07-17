@@ -298,12 +298,12 @@ static inline void add_template_names_to_trie (FILE * template_names_file,
 		if (template_name.len == 0)
 			CRASH_WITH_MSG("file contains an empty line\n");
 			
-		entry = hattrie_tryget(template_trie, template_name.str, template_name.len);
+		entry = hattrie_tryget_slice(template_trie, template_name);
 		
 		if (entry != NULL)
 			CRASH_WITH_MSG("two entries for '%.*s' in template name files\n", (int) len, line);
 			
-		entry = hattrie_get(template_trie, template_name.str, template_name.len);
+		entry = hattrie_get_slice(template_trie, template_name);
 		
 		if (tab != NULL) {
 			str_slice_t filename_slice = trim(str_slice_init(tab + 1, strlen(tab + 1)));
