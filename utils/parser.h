@@ -8,7 +8,7 @@
 #include "utils/buffer.h"
 
 #define EPRINTF(...) fprintf(stderr, __VA_ARGS__)
-#define CRASH_WITH_MSG(...) EPRINTF(__VA_ARGS__), exit(-1)
+#define CRASH_WITH_MSG(...) EPRINTF(__VA_ARGS__), exit(EXIT_FAILURE)
 
 #define NAME_SIZE 16 // longest key 12?
 #define PAGE_NAME_LEN 256 // https://www.mediawiki.org/wiki/Manual:Page_table#page_title

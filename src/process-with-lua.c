@@ -42,8 +42,8 @@ static bool process_page (parse_info * info) {
 	if (lua_pcall(L, 3, 1, 0) != LUA_OK)
 		print_Lua_error_and_crash(L, "error while calling function");
 	
-	if (lua_type(L, -1) != LUA_TBOOLEAN)
-		CRASH_WITH_MSG("function did not return a boolean\n");
+	if (!lua_isboolean(L, -1))
+		print_Lua_error_and_crash(L, "function did not return a boolean");
 		
 	// whether to continue processing pages
 	res = lua_toboolean(L, -1);
@@ -171,7 +171,7 @@ int main (int argc, const char * * argv) {
 		print_Lua_error_and_crash(L, "error while running script");
 	
 	if (lua_type(L, -1) != LUA_TFUNCTION)
-		CRASH_WITH_MSG("script did not return a function\n");
+		print_Lua_error_and_crash(L, "script did not return a function");
 		
 	parse_Wiktionary_page_dump(options.input_file,
 	                           process_page,
