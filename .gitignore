@@ -4,8 +4,10 @@
 # exclude pages.xml and such
 *.xml
 
-# file extension that I use for output
+# output file extensions
 *.txt
+*.json
+*.cbor
 
 # output directory
 bin*
