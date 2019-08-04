@@ -10,3 +10,7 @@ filtered-headers:
 		-x correct_headers.txt \
 		-x language_names.txt \
 		-n '0 118'
+
+language-names:
+	lua -e 'for name in pairs(require "mediawiki.languages.name_to_code") do print(name) end' \
+		> language_names.txt
