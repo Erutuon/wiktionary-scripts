@@ -358,6 +358,18 @@ static inline void info_free (parse_info * info) {
 	buffer_free(&info->page.content);
 }
 
+static inline void print_time(double seconds) {
+	double seconds_part;
+	if (seconds >= 60.0) {
+		long long unsigned minutes = (long long unsigned) seconds / 60;
+		seconds_part = seconds - (double) (minutes * 60);
+		EPRINTF("%llu min ", minutes);
+	} else {
+		seconds_part = seconds;
+	}
+	EPRINTF("%.3f sec", seconds_part);
+}
+
 static inline void print_parser_info(XML_Parser parser,
                                      parse_info * info,
                                      time_t start_time,
@@ -371,8 +383,11 @@ static inline void print_parser_info(XML_Parser parser,
 	EPRINTF("longest page: %s; ", byte_count_buf);
 	
 	format_byte_count(buffer_size(&info->page.content), byte_count_buf, sizeof byte_count_buf);
-	EPRINTF("buffer size: %s; time: %f seconds\n",
-	        byte_count_buf, ((double) end_time - start_time) / CLOCKS_PER_SEC);
+	EPRINTF("buffer size: %s; time: ", byte_count_buf);
+	
+	double seconds = ((double) end_time - start_time) / CLOCKS_PER_SEC;
+	print_time(seconds);
+	EPRINTF("\n");
 }
 
 void parse_Wiktionary_page_dump (FILE * XML_file,
