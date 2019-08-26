@@ -61,27 +61,27 @@ local function make_data(file)
 	return data_by_title("templates", file)
 end
 
-local combined_Arabic_data = make_data(assert(io.open("Arabic.txt", "wb")))
+local combined_Arabic_data = make_data(assert(io.open("Arabic.json", "wb")))
 
 local language_data = {
 	ar = {
 		regex = rure.new("["
 			.. Arabic_letters("Farsi yeh", "heh doachashmee", "heh goal", "keheh", "yeh with tail")
 			.. "[^" .. make_script_pattern("Arab", "Brai", "Zinh", "Zyyy") .. "]]"),
-		title_to_data = make_data(assert(io.open("ar.txt", "wb")))
+		title_to_data = make_data(assert(io.open("ar.json", "wb")))
 	},
 	en = {
 		regex = rure.new("[^" .. make_script_pattern("Latn", "Brai", "Zinh", "Zyyy") .. "]"),
-		title_to_data = make_data(assert(io.open("en.txt", "wb"))),
+		title_to_data = make_data(assert(io.open("en.json", "wb"))),
 	},
 	el = {
 		regex = rure.new("[" .. Greek_symbols .. "[^" .. make_script_pattern("Grek", "Zinh", "Zyyy") .. "]]"),
-		title_to_data = make_data(assert(io.open("el.txt", "wb"))),
+		title_to_data = make_data(assert(io.open("el.json", "wb"))),
 	},
 	grc = {
 		regex = rure.new("[" .. Greek_symbols .. chars_from_names("Greek koronis", "Greek psili")
 			.. "[^" .. make_script_pattern("Grek", "Cprt", "Zinh", "Zyyy") .. "]]"),
-		title_to_data = make_data(assert(io.open("grc.txt", "wb"))),
+		title_to_data = make_data(assert(io.open("grc.json", "wb"))),
 	},
 	fa = {
 		regex = rure.new("[" .. non_Persian .. "[^" .. all_Arabic .. "]]"),
@@ -108,19 +108,20 @@ local language_data = {
 
 local Cyrillic_data = {
 	regex = rure.new("[^" .. make_script_pattern("Cyrl", "Zinh", "Zyyy") .. "]"),
-	title_to_data = make_data(assert(io.open("Cyrillic.txt", "wb"))),
+	title_to_data = make_data(assert(io.open("Cyrillic.json", "wb"))),
 }
 
-for _, lang in ipairs {
-	"abq", "ady", "agx", "akv", "alr", "alt", "ani", "aqc", "atv", "av", "ba",
-	"bdk", "be", "bg", "bph", "bua", "ce", "chm", "cji", "cjs", "ckt",
-	"crp-tpr", "cv", "dar", "ddo", "dlg", "ess", "evn", "gdo", "gin", "gld",
-	"huz", "inh", "kap", "kbd", "kca", "ket", "khv", "kim", "kjh", "kjj",
-	"kpt", "kpv", "kpy", "krc", "kum", "lbe", "lez", "mdf", "mk", "mns", "mrj",
-	"mtm", "myv", "neg", "nio", "niv", "ru", "rue", "rut", "sah", "sel", "sjd",
-	"sty", "syd-fne", "tab", "tkr", "tyv", "ude", "udm", "uk", "uum", "xal",
-	"xas", "xme-klt", "ykg", "yrk", "ysr", "yux"
-} do
+local Cyrillic_only_languages = Array()
+for code, data in pairs(require "Module:languages/alldata") do
+	local scripts = Array(data.scripts)
+	if scripts:contains "Cyrl"
+			and (#scripts == 1
+			or #scripts == 2 and scripts:contains "Brai") then
+		Cyrillic_only_languages:insert(code)
+	end
+end
+
+for _, lang in ipairs(Cyrillic_only_languages) do
 	language_data[lang] = Cyrillic_data
 end
 

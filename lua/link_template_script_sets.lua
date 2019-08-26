@@ -1,3 +1,5 @@
+#! /usr/bin/env lua53
+
 local count = 0
 local first_arg = ...
 local limit_arg = first_arg
