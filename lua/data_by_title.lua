@@ -17,10 +17,10 @@ local mt = {
 			local sorted_pairs = require "Module:table".sortedPairs
 			local case_insensitive_comp = require "casefold".comp
 			
-			local data_key = self[key_for_data_key] or "data"
+			local data_key = rawget(self, key_for_data_key) or "data"
 			self[key_for_data_key] = nil
 			
-			local file = self[file_key]
+			local file = rawget(self, file_key)
 			self[file_key] = nil
 			
 			for title, data in sorted_pairs(self, case_insensitive_comp) do
