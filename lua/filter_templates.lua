@@ -1,6 +1,11 @@
 #! /usr/bin/env lua53
 
-local fn, cbor_file_path = ...
+local args = {...}
+local fn = table.remove(args, 1)
+local template_names = args
+if #template_names == 0 then
+	error("expected template names")
+end
 if type(fn) ~= "string" then
 	error("expected a function body as argument")
 end
@@ -8,11 +13,26 @@ fn = load([[
 local template, title = ...
 local name, parameters, text = template.name, template.parameters, template.text
 return ]] .. fn, "arg1")
-	or assert(load(fn, "arg1"))
+	or assert(load([[
+local template, title = ...
+local name, parameters, text = template.name, template.parameters, template.text
+]] .. fn, "arg1"))
 
-local data_by_title = require "data_by_title" "templates"
+setmetatable(_ENV, {
+	__index = function (self, key)
+		local val
+		if key == "regex" then
+			val = require "rure"
+		elseif key == "Array" then
+			val = require "mediawiki.array"
+		end
+		if val ~= nil then
+			self[key] = val
+			return val
+		end
+	end,
+})
 
-local cbor_file = cbor_file_path and io.open(cbor_file_path, "rb") or io.stdin
 local cbor_next = require 'cn-cbor'.decode_next
 local wrap, yield = coroutine.wrap, coroutine.yield
 
@@ -34,21 +54,6 @@ local template_parameters_mt = {
 	end,
 }
 
-setmetatable(_ENV, {
-	__index = function (self, key)
-		local val
-		if key == "regex" then
-			val = require "rure"
-		elseif key == "Array" then
-			val = require "mediawiki.array"
-		end
-		if val ~= nil then
-			self[key] = val
-			return val
-		end
-	end,
-})
-
 local function iterate_cbor_templates(cbor)
 	local pos = 1
 	return wrap(function ()
@@ -67,11 +72,17 @@ local function iterate_cbor_templates(cbor)
 	end)
 end
 
-local cbor = assert(cbor_file:read 'a')
+local data_by_title = require "data_by_title" "templates"
+
 xpcall(function ()
-	for template, title in iterate_cbor_templates(cbor) do
-		if fn(template, title) then
-			data_by_title[title]:insert(template.text)
+	for _, template_name in ipairs(template_names) do
+		local filepath = "cbor/" .. template_name .. ".cbor"
+		local cbor_file = assert(io.open(filepath, "rb"))
+		local cbor = assert(cbor_file:read 'a')
+		for template, title in iterate_cbor_templates(cbor) do
+			if fn(template, title) then
+				data_by_title[title]:insert(template.text)
+			end
 		end
 	end
 end, function (err)

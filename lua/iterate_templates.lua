@@ -166,8 +166,54 @@ local function iterate_links(content, title_start, template_start)
 	return iterate_links_raw(iterate_templates(content, title_start, template_start))
 end
 
+local ok, iterate_cbor_templates = pcall(function ()
+	local cbor_next = require 'cn-cbor'.decode_next
+	local wrap, yield = coroutine.wrap, coroutine.yield
+
+	local Array_index
+	local template_parameters_mt = {
+		__index = function (parameters, key)
+			local val = rawget(parameters, tostring(key))
+			if val == nil then
+				if not Array_index then
+					Array_index = require "mediawiki.array".__index
+				end
+				return Array_index(parameters, key)
+			else
+				return val
+			end
+		end,
+		__len = function (parameters)
+			return parameters:length()
+		end,
+	}
+
+	local function iterate_cbor_templates(cbor)
+		local pos = 1
+		return wrap(function ()
+			while true do
+				local data
+				pos, data = cbor_next(cbor, pos)
+				if pos == nil then
+					return
+				end
+				local title, templates = data.title, data.templates
+				for _, template in ipairs(templates) do
+					template.parameters = setmetatable(template.parameters, template_parameters_mt)
+					yield(template, title)
+				end
+			end
+		end)
+	end
+	
+	return iterate_cbor_templates
+end)
+
+local iterate_cbor_templates = ok and iterate_cbor_templates or nil
+
 return {
 	iterate_templates = iterate_templates,
 	iterate_links = iterate_links,
-	iterate_links_raw = iterate_links_raw
+	iterate_links_raw = iterate_links_raw,
+	iterate_cbor_templates = iterate_cbor_templates,
 }

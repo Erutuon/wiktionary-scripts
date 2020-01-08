@@ -1,15 +1,31 @@
 #! /usr/bin/env lua53
 
-local fn, cbor_file_path = ...
+local fn = ...
+local template_names = table.pack(select(2, ...))
+
+if #template_names == 0 then
+	local file = assert(io.open("link_templates.txt", "rb"))
+	template_names = {}
+	for template_name in file:read "a":gmatch "[^\n]+" do
+		table.insert(template_names, template_name)
+	end
+end
+
 if type(fn) ~= "string" then
 	error("expected a function body as argument")
 end
+
+-- fn should be either an expression or a part of a block that contains return statements.
 fn = load([[
 local link, title, template = ...
 local name, parameters = template.name, template.parameters
 local lang, term, alt, tr = link.lang, link.term, link.alt, link.tr
 return ]] .. fn, "arg1")
-	or assert(load(fn, "arg1"))
+	or assert(load([[
+local link, title, template = ...
+local name, parameters = template.name, template.parameters
+local lang, term, alt, tr = link.lang, link.term, link.alt, link.tr
+]] .. fn, "arg1"))
 
 local rure
 _ENV.regex = setmetatable({}, {
@@ -34,15 +50,14 @@ _ENV.utf8proc = setmetatable({}, {
 
 local data_by_title = require "data_by_title" "templates"
 
-local cbor_file = cbor_file_path and io.open(cbor_file_path, "rb") or io.stdin
-local cbor_next = require 'cn-cbor'.decode_next
-local wrap, yield = coroutine.wrap, coroutine.yield
-
 local template_parameters_mt = {
 	__index = function (parameters, key)
 		return rawget(parameters, tostring(key))
 	end,
 }
+
+local cbor_next = require "cn-cbor".decode_next
+local wrap, yield = coroutine.wrap, coroutine.yield
 
 local function iterate_cbor_templates(cbor)
 	local pos = 1
@@ -62,15 +77,22 @@ local function iterate_cbor_templates(cbor)
 	end)
 end
 
-local cbor = assert(cbor_file:read 'a')
 xpcall(function ()
-	local prev_template
-	for link, title, template in require 'iterate_templates'.iterate_links_raw(iterate_cbor_templates(cbor)) do
-		if fn(link, title, template) then
-			if template ~= prev_template then
-				data_by_title[title]:insert(template.text)
+	for _, template_name in ipairs(template_names) do
+		local prev_template
+		local filepath = "cbor/" .. template_name .. ".cbor"
+		local file = io.open(filepath, "rb")
+		if file then
+			for link, title, template in require "iterate_templates".iterate_links_raw(iterate_cbor_templates(file:read "a")) do
+				if fn(link, title, template) then
+					if template ~= prev_template then
+						data_by_title[title]:insert(template.text)
+					end
+					prev_template = template
+				end
 			end
-			prev_template = template
+		else
+			io.stderr:write(filepath .. " not found\n")
 		end
 	end
 end, function (err)

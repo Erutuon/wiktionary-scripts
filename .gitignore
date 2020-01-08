@@ -7,12 +7,16 @@
 # output file extensions
 *.txt
 *.json
+*.jsonl
 *.cbor
 
 # output directory
-bin*
+bin
 
 # random stuff
+*.ipynb
+.ipynb_checkpoints
+cbor
 sandbox*
 templates
 !templates/Makefile
