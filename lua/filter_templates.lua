@@ -18,12 +18,24 @@ local template, title = ...
 local name, parameters, text = template.name, template.parameters, template.text
 ]] .. fn, "arg1"))
 
+local rure
+_ENV.regex = setmetatable({}, {
+	__call = function (self, str)
+		local val = rawget(self, str)
+		if val then
+			return val
+		end
+		rure = require "luarure"
+		val = rure.new(str)
+		rawset(self, str, val)
+		return val
+	end,
+})
+
 setmetatable(_ENV, {
 	__index = function (self, key)
 		local val
-		if key == "regex" then
-			val = require "rure"
-		elseif key == "Array" then
+		if key == "Array" then
 			val = require "mediawiki.array"
 		end
 		if val ~= nil then
