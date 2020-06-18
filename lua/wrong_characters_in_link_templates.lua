@@ -3,7 +3,6 @@
 require "mediawiki"
 
 local json = require "cjson"
-local parse = require "parse_template"
 local eprint = require "utils".eprint
 local chars_from_names = require "utils".chars_from_names
 
@@ -16,29 +15,38 @@ local function get_by_code(code)
 		or etymology_languages.getByCode(code)
 end
 
-local max = type((...)) == "string" and tonumber(...) or math.huge
+local first_arg = ...
+local max = type(first_arg) == "string" and tonumber(first_arg) or math.huge
 local count = 0
 
-local link_template_names = require "Module:table".listToSet {
+local Array = require "Module:array"
+local link_template_names = Array {
 	"m", "l", "t", "t+", "cog", "cognate", "ncog", "noncognate"
-}
+}:to_set()
 
-local derivation_template_names = require "Module:table".listToSet {
+local derivation_template_names = Array {
 	"der", "derived", "inh", "inherited", "bor", "borrowed",
 	"cal", "calq", "calque", "clq",
-}
+}:to_set()
 
-local Array = require "Module:array"
-local function make_script_pattern(...)
+local function script_pattern(...)
 	return Array(...)
 		:map(function (script) return "\\p{" .. script .. "}" end)
 		:concat ''
 end
 
+local function characters_from_names_with_prefix(prefix, ...)
+	assert(type(prefix) == "string")
+	return chars_from_names(Array(...)
+		:map(function (name) return prefix .. name end))
+end
 
 local function Arabic_letters(...)
-	return chars_from_names(Array(...)
-		:map(function (name) return "Arabic letter " .. name end))
+	return characters_from_names_with_prefix("Arabic letter ", ...)
+end
+
+local function Greek_characters(...)
+	return characters_from_names_with_prefix("Greek ", ...)
 end
 
 local non_Persian = Arabic_letters(
@@ -49,10 +57,10 @@ local Pashto_only_final_yeh = Arabic_letters("Farsi yeh", "yeh with tail")
 local non_Urdu = Arabic_letters("kaf", "yeh", "alef maksura", "teh marbuta", "heh")
 local non_Ottoman = Arabic_letters(
 	"keheh", "yeh", "alef maksura", "teh marbuta", "heh doachashmee", "heh goal")
-local Pashto_yeh_in_wrong_position = "[" .. Pashto_only_final_yeh .. "]" .. "\\B"
-local all_Arabic = make_script_pattern("Arab", "Zinh", "Zyyy")
-local Greek_symbols = chars_from_names(
-	"Greek theta symbol", "Greek phi symbol", "Greek kappa symbol", "Greek rho symbol")
+local Pashto_yeh_in_wrong_position = "[" .. Pashto_only_final_yeh .. "]\\B"
+local all_Arabic = script_pattern("Arab", "Zinh", "Zyyy")
+local Greek_symbols = Greek_characters(
+	"theta symbol", "phi symbol", "kappa symbol", "rho symbol")
 
 local rure = require "luarure"
 
@@ -67,20 +75,20 @@ local language_data = {
 	ar = {
 		regex = rure.new("["
 			.. Arabic_letters("Farsi yeh", "heh doachashmee", "heh goal", "keheh", "yeh with tail")
-			.. "[^" .. make_script_pattern("Arab", "Brai", "Zinh", "Zyyy") .. "]]"),
+			.. "[^" .. script_pattern("Arab", "Brai", "Zinh", "Zyyy") .. "]]"),
 		title_to_data = make_data(assert(io.open("ar.json", "wb")))
 	},
 	en = {
-		regex = rure.new("[^" .. make_script_pattern("Latn", "Brai", "Zinh", "Zyyy") .. "]"),
+		regex = rure.new("[^" .. script_pattern("Latn", "Brai", "Zinh", "Zyyy") .. "]"),
 		title_to_data = make_data(assert(io.open("en.json", "wb"))),
 	},
 	el = {
-		regex = rure.new("[" .. Greek_symbols .. "[^" .. make_script_pattern("Grek", "Zinh", "Zyyy") .. "]]"),
+		regex = rure.new("[" .. Greek_symbols .. "[^" .. script_pattern("Grek", "Zinh", "Zyyy") .. "]]"),
 		title_to_data = make_data(assert(io.open("el.json", "wb"))),
 	},
 	grc = {
-		regex = rure.new("[" .. Greek_symbols .. chars_from_names("Greek koronis", "Greek psili")
-			.. "[^" .. make_script_pattern("Grek", "Cprt", "Zinh", "Zyyy") .. "]]"),
+		regex = rure.new("[" .. Greek_symbols .. Greek_characters("koronis", "psili")
+			.. "[^" .. script_pattern("Grek", "Cprt", "Zinh", "Zyyy") .. "]]"),
 		title_to_data = make_data(assert(io.open("grc.json", "wb"))),
 	},
 	fa = {
@@ -97,7 +105,7 @@ local language_data = {
 		title_to_data = combined_Arabic_data,
 	},
 	sdh = {
-		regex = rure.new("[" .. non_Persian .. "[^" .. make_script_pattern("Latn", "Arab", "Zinh", "Zyyy") .. "]]"),
+		regex = rure.new("[" .. non_Persian .. "[^" .. script_pattern("Latn", "Arab", "Zinh", "Zyyy") .. "]]"),
 		title_to_data = combined_Arabic_data,
 	},
 	ota = {
@@ -107,7 +115,7 @@ local language_data = {
 }
 
 local Cyrillic_data = {
-	regex = rure.new("[^" .. make_script_pattern("Cyrl", "Zinh", "Zyyy") .. "]"),
+	regex = rure.new("[^" .. script_pattern("Cyrl", "Zinh", "Zyyy") .. "]"),
 	title_to_data = make_data(assert(io.open("Cyrillic.json", "wb"))),
 }
 
@@ -166,19 +174,33 @@ local function process_link(link, title, template)
 end
 
 local iterate_templates = require "iterate_templates"
+local cbor = true
+local function iter(str)
+	return cbor
+		and iterate_templates.iterate_links_raw(iterate_templates.iterate_cbor_templates(str))
+		or iterate_templates.iterate_links(str)
+end
 
-for link, title, template in iterate_templates.iterate_links(io.read 'a') do
-	if link.lang then
-		local language_obj = get_by_code(link.lang)
-		local parent = language_obj and languages.getNonEtymological(language_obj)
-		link.parent_code = parent and parent:getCode()
-		
-		if link.parent_code and link.term then
-			process_link(link, title, template)
-		end
-		
-		if count > max then
-			break
+local args = { ... }
+xpcall(function()
+	for _, file in ipairs(args) do
+		local content = assert(assert(io.open(file, 'rb')):read 'a')
+		for link, title, template in iter(content) do
+			if link.lang then
+				local language_obj = get_by_code(link.lang)
+				local parent = language_obj and languages.getNonEtymological(language_obj)
+				link.parent_code = parent and parent:getCode()
+				
+				if link.parent_code and link.term then
+					process_link(link, title, template)
+				end
+				
+				if count > max then
+					break
+				end
+			end
 		end
 	end
-end
+end, function (err)
+	io.stderr:write(debug.traceback(tostring(err), 2), "\n")
+end)

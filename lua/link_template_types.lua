@@ -9,6 +9,7 @@ M.simple = list_to_set {
 	"clipping",
 	"cognate", "cog",
 	"descendant", "desc",
+	"descendants tree", "desctree",
 	"deverbal",
 	"l", "link",
 	"l-self",
