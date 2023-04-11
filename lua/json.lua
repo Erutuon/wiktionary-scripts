@@ -48,6 +48,7 @@ function p.encode(val, opts)
 					return '{}'
 				end
 			else
+				io.stderr:write(require "inspect"(val), '\n')
 				error('Table with unsupported key type: ' .. key_type)
 			end
 		else
@@ -139,7 +140,8 @@ function p.objectFromTable(t, f)
 	local ret = {}
 	for key, value in require "Module:table".sortedPairs(t) do
 		if type(key) ~= 'string' then
-			error('Not a string: ' .. key)
+			io.stderr:write(require "inspect"(key), '\n')
+			error('Not a string: ' .. tostring(key))
 		end
 		key = p.stringFromString(key)
 		value = f(value)

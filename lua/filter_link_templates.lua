@@ -3,6 +3,8 @@
 local fn = ...
 local template_names = table.pack(select(2, ...))
 
+io.stderr:write(table.concat(template_names, ", "), "\n")
+
 if #template_names == 0 then
 	local file = assert(io.open("link_templates.txt", "rb"))
 	template_names = {}
@@ -86,7 +88,17 @@ xpcall(function ()
 			for link, title, template in require "iterate_templates".iterate_links_raw(iterate_cbor_templates(file:read "a")) do
 				if fn(link, title, template) then
 					if template ~= prev_template then
-						data_by_title[title]:insert(template.text)
+						local to_remove = {"count"}
+						for k, v in pairs(link) do
+							if k:find "param" then
+								table.insert(to_remove, k)
+							end
+						end
+						for _, k in ipairs(to_remove) do
+							link[k] = nil
+						end
+						local record = {template = template, link = link}
+						data_by_title[title]:insert(record)
 					end
 					prev_template = template
 				end

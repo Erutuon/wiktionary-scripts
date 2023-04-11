@@ -14,7 +14,8 @@ if #template_names == 0 then
 	end
 end
 
-local script_sets = require "mediawiki.array"()
+require "mediawiki"
+local script_sets = require "Module:array"()
 local get_script_counts = require "luaucdn".script_counts
 local make_counter = require "counter"
 local counters = setmetatable({}, {
@@ -26,7 +27,6 @@ local counters = setmetatable({}, {
 })
 local eprint = require "utils".eprint
 
-require "mediawiki"
 local etymology_to_regular_language = {}
 local get_non_etymological = require "Module:languages".getNonEtymological
 local get_etymology_language_by_code = require "Module:etymology languages".getByCode

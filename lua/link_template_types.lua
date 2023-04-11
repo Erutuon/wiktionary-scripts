@@ -23,6 +23,8 @@ M.simple = list_to_set {
 	"t+",
 	"t-check",
 	"t+check",
+	"t-simple",
+	"tt",
 }
 
 M.translation = {
@@ -30,6 +32,8 @@ M.translation = {
 	"t+",
 	"t-check",
 	"t+check",
+	"tt",
+	"t-simple",
 }
 
 -- Templates in which the language code is in the second parameter
